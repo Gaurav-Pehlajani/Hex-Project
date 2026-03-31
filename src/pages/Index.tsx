@@ -39,7 +39,7 @@ When real scan data is provided analyze it and respond in this exact format:
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 📡 FINDINGS:
-[Summarize what was found from the real data provided]
+[You MUST quote the exact numbers from the real data provided - reputation score, exact malicious count, harmless votes, verdict. Do not generalize.]
 
 🚨 CRITICAL ISSUES:
 [List critical severity issues or "None found"]
@@ -654,6 +654,7 @@ const Index = () => {
         realData = `\n\nNote: ${target} is a private/local IP address. Shodan only has data on public internet-facing IPs. I cannot query external databases for this target.`;
       } else {
         const vtData = await queryVirusTotal(target);
+        console.log('FULL VIRUSTOTAL DATA:', vtData);
         realData = `\n\nREAL SCAN DATA FOR ${target}:\n${vtData}`;
       }
     }
