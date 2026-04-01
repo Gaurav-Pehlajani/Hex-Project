@@ -75,17 +75,29 @@ export async function sendToDeepSeek(
 }
 
 export async function queryVirusTotal(target: string): Promise<string> {
-  const apiKey = import.meta.env.VITE_VIRUSTOTAL_API_KEY;
   try {
-    const isIP = /^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(target);
-    const endpoint = isIP
-      ? `https://www.virustotal.com/api/v3/ip_addresses/${target}`
-      : `https://www.virustotal.com/api/v3/domains/${target}`;
-    const response = await fetch(endpoint, {
-      headers: { 'x-apikey': apiKey }
-    });
-    if (!response.ok) return `VirusTotal error: ${response.status}`;
-    const data = await response.json();
+    const isLocalhost = window.location.hostname === 'localhost';
+    const apiKey = import.meta.env.VITE_VIRUSTOTAL_API_KEY;
+    
+    let data;
+    if (isLocalhost) {
+      // Direct call on localhost (no CORS issue)
+      const isIP = /^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(target);
+      const endpoint = isIP
+        ? `https://www.virustotal.com/api/v3/ip_addresses/${target}`
+        : `https://www.virustotal.com/api/v3/domains/${target}`;
+      const response = await fetch(endpoint, {
+        headers: { 'x-apikey': apiKey }
+      });
+      data = await response.json();
+    } else {
+      // Use Netlify proxy function on deployed site
+      const response = await fetch(`/.netlify/functions/virustotal?target=${encodeURIComponent(target)}`);
+      data = await response.json();
+    }
+    const vtResponse = { ok: true, json: async () => data };
+    const response = vtResponse;
+    if (!response.ok) return `VirusTotal error: could not fetch data`;
     const stats = data.data?.attributes?.last_analysis_stats;
     const reputation = data.data?.attributes?.reputation || 0;
     const malicious = stats?.malicious || 0;
