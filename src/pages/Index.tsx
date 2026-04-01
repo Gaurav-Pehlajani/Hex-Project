@@ -325,6 +325,12 @@ const Index = () => {
     // Clear current messages
     setMessages([]);
     
+    // Reset scan states
+    setCurrentTarget(null);
+    setGeoData(null);
+    setShodanData(null);
+    setRiskScore(0);
+    
     // Add notification message
     const notificationMessage: Message = {
       id: `msg_${Date.now()}_notification`,
@@ -683,6 +689,12 @@ const Index = () => {
     // Skip input check if this is an auto-triggered analysis or direct message
     if (!directMessage && !autoTrigger && !messageToSend) return;
 
+    // Reset scan states for a fresh analysis
+    setCurrentTarget(null);
+    setGeoData(null);
+    setShodanData(null);
+    setRiskScore(0);
+
     // Check authentication
     if (!isAuthenticated) {
       handleApiError({
@@ -726,27 +738,33 @@ const Index = () => {
         realData = `\n\nNote: ${target} is a private/local IP address. This is a local network address — external databases cannot be queried for private IPs.`;
       } else {
         const isIP = /^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(target);
+        console.log('--- STARTING MULTI-API SCAN ---');
         const [vtData, geoData, whoisData, shodanData] = await Promise.all([
           queryVirusTotal(target),
           isIP ? queryGeolocation(target) : Promise.resolve('Geolocation: Only available for IP addresses.'),
           !isIP ? queryWhois(target) : Promise.resolve('WHOIS: Only available for domains.'),
           isIP ? queryShodan(target) : Promise.resolve('SHODAN: Only available for IP addresses.')
         ]);
-        console.log('FULL VIRUSTOTAL DATA:', vtData);
-        console.log('GEOLOCATION DATA:', geoData);
-        console.log('WHOIS DATA:', whoisData);
-        console.log('SHODAN DATA:', shodanData);
+        console.log('✅ ALL API DATA FETCHED');
+        console.log('VT:', vtData ? 'YES' : 'NO');
+        console.log('GEO:', geoData ? 'YES' : 'NO');
+        console.log('WHOIS:', whoisData ? 'YES' : 'NO');
+        console.log('SHODAN:', shodanData ? 'YES' : 'NO');
         
         const calculatedRiskScore = calculateRiskScore(vtData, geoData, shodanData);
         const riskLabel = getRiskLabel(calculatedRiskScore);
+        console.log('🎯 CALCULATED SCORE:', calculatedRiskScore);
         
         // Update dashboard state
+        console.log('⚙️ UPDATING DASHBOARD STATE...');
         setGeoData(geoData);
         setShodanData(shodanData);
         setRiskScore(calculatedRiskScore);
+        console.log('✨ DASHBOARD STATE UPDATED');
         
         // Log to database asynchronously
         if (user?.id) {
+          console.log('💾 LOGGING TO SUPABASE...');
           supabase.from('scan_history').insert({
             user_id: user.id,
             target: target,
@@ -754,10 +772,12 @@ const Index = () => {
             verdict: riskLabel,
           }).then(({ error }) => {
             if (error) console.warn('Failed to log scan to history (table might not exist yet):', error);
+            else console.log('✅ SUPABASE LOG SUCCESS');
           });
         }
         
         realData = `\n\nREAL SCAN DATA FOR ${target}:\n${vtData}\n\n${geoData}\n\n${whoisData}\n\n${shodanData}\n\nCUSTOM RISK SCORE: ${calculatedRiskScore}/100 (${riskLabel})`;
+        console.log('--- SCAN COMPLETE - SENDING TO AI ---');
       }
     }
 

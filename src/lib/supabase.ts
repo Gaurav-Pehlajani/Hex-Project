@@ -121,9 +121,16 @@ export const authFunctions = {
 
       clearTimeout(timeoutId);
 
+      // Handle "No Row Found" gracefully as a null profile (not a system error)
+      if (error && error.code === 'PGRST116') {
+        return { profile: null, error: null };
+      }
+
       return { profile: data, error };
-    } catch (err) {
+    } catch (err: any) {
       clearTimeout(timeoutId);
+      // Abort errors are expected sometimes
+      if (err.name === 'AbortError') return { profile: null, error: null };
       console.error('❌ Unexpected error in getUserProfile:', err);
       return { profile: null, error: err };
     }
@@ -183,7 +190,12 @@ export const authFunctions = {
         .single();
 
       if (usageError && usageError.code !== 'PGRST116') { // PGRST116 = not found
-        console.error('❌ Error getting daily usage:', usageError);
+        // Only log serious errors, not "no data found" or "not acceptable"
+        if ((usageError as any).status !== 406) {
+          console.error('❌ Error getting daily usage:', usageError);
+        } else {
+          console.warn('⚠️ Supabase connection restricted: Check API keys and RLS policies.');
+        }
         return { messageCount: 0, canSendMessage: true, error: usageError };
       }
 
