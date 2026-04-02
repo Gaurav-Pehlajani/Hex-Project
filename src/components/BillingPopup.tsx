@@ -43,7 +43,7 @@ const BillingPopup: React.FC<BillingPopupProps> = ({ isOpen, onClose, dailyUsage
           {/* Current Usage */}
           <div className="text-center">
             <div className="text-2xl font-bold text-green-400 mb-2">
-              {dailyUsage.messageCount}/3
+              {dailyUsage?.messageCount ?? 0}/3
             </div>
             <p className="text-gray-300 text-sm">
               You've used all your free messages today

@@ -199,7 +199,7 @@ Verdict: ${stats?.malicious > 0 ? '❌ MALICIOUS' : stats?.suspicious > 0 ? '⚠
 export async function queryGeolocation(target: string): Promise<{ formatted: string, raw: any }> {
   try {
     const isIP = /^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(target);
-    if (!isIP) return { formatted: `Geolocation: Only available for IP addresses, not domains.`, raw: null };
+    // Allow domains too, ip-api handles them perfectly!
     
     const isLocalhost = window.location.hostname === 'localhost';
     let data;

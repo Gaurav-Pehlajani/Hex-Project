@@ -16,12 +16,12 @@ import BillingPopup from '@/components/BillingPopup';
 import ThreatIntelFeed from '@/components/ThreatIntelFeed';
 import TerminalWindow, { type TerminalOutput } from '@/components/TerminalWindow';
 import { useToolExecution } from '@/hooks/use-tool-execution';
-import { professionalSecurityTools } from '@/lib/tools-schema';
-import { MCPClient } from '@/lib/mcp-client';
 import TargetOverview from '@/components/TargetOverview';
 import { type RawApiData } from '@/components/RawDataViewer';
 import ScanHistory from '@/components/ScanHistory';
 import { supabase } from '@/lib/supabase';
+import { jsPDF } from 'jspdf';
+import html2canvas from 'html2canvas';
 
 const SYSTEM_PROMPT = `
 You are Hex AI — a professional cybersecurity intelligence assistant. You analyze real security data from Shodan and VirusTotal APIs and explain findings in plain English.
@@ -65,7 +65,13 @@ When real scan data is provided analyze it and respond in this exact format:
 If no target is provided yet, ask the user to provide an IP address or domain to investigate.
 `;
 
-// Message interface is now imported from the conversation hook
+interface Message {
+  id: string;
+  type: 'user' | 'assistant';
+  content: string;
+  timestamp: Date;
+  isError?: boolean;
+}
 
 const CopyablePreBlock = (props: React.HTMLAttributes<HTMLPreElement>) => {
   const isMobile = useIsMobile();
@@ -100,7 +106,6 @@ const CopyablePreBlock = (props: React.HTMLAttributes<HTMLPreElement>) => {
       </div>
     );
   }
-  // Desktop: keep button inside <pre>
   return (
     <pre className="bg-gray-800 p-2 sm:p-3 md:p-4 rounded-lg overflow-x-auto mb-2 sm:mb-3 text-xs sm:text-sm relative" {...props}>
       <button
@@ -120,1551 +125,584 @@ const CopyablePreBlock = (props: React.HTMLAttributes<HTMLPreElement>) => {
 
 const Index = () => {
   const navigate = useNavigate();
-
-  // Use authentication hook
-  const {
-    user,
-    profile,
-    isAuthenticated,
-    canSendMessage,
-    incrementUsage,
-    isPremium,
-    dailyUsage,
-    refreshUsage,
-    signOut
-  } = useAuth();
-
-  // Simple message state management
-  interface Message {
-    id: string;
-    type: 'user' | 'assistant';
-    content: string;
-    timestamp: Date;
-    isError?: boolean;
-  }
+  const { user, profile, isAuthenticated, canSendMessage, incrementUsage, isPremium, dailyUsage, refreshUsage, signOut } = useAuth();
+  const isMobile = useIsMobile();
 
   const [messages, setMessages] = useState<Message[]>([]);
   const [currentTarget, setCurrentTarget] = useState<string | null>(null);
   const [riskScore, setRiskScore] = useState<number>(0);
   const [geoData, setGeoData] = useState<string | null>(null);
   const [shodanData, setShodanData] = useState<string | null>(null);
-  const [isScanning, setIsScanning] = useState<boolean>(false);
-  const [showHistory, setShowHistory] = useState(false);
   const [subdomains, setSubdomains] = useState<string[]>([]);
   const [rawApiData, setRawApiData] = useState<RawApiData>({});
+  const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
+  const [isScanning, setIsScanning] = useState<boolean>(false);
+  const [showHistory, setShowHistory] = useState(false);
+  const [isHistoryLoading, setIsHistoryLoading] = useState(false);
 
-  // Simple localStorage functions
-  const saveMessagesToStorage = (messages: Message[]) => {
-    try {
-      localStorage.setItem('hex_messages', JSON.stringify(messages));
-    } catch (error) {
-      console.warn('Failed to save messages to localStorage:', error);
-    }
-  };
-
-  const loadMessagesFromStorage = (): Message[] => {
-    try {
-      const saved = localStorage.getItem('hex_messages');
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        return parsed.map((msg: any) => ({
-          ...msg,
-          timestamp: new Date(msg.timestamp)
-        }));
-      }
-    } catch (error) {
-      console.warn('Failed to load messages from localStorage:', error);
-    }
-    return [];
-  };
-
-  // Load messages on component mount
-  useEffect(() => {
-    const savedMessages = loadMessagesFromStorage();
-    setMessages(savedMessages);
-  }, []);
-
- // Save messages whenever messages change
-  const isReportOpenRef = useRef(false);
-  const messagesSnapshotRef = useRef<Message[]>([]);
-  useEffect(() => {
-    if (messages.length > 0 && !isReportOpenRef.current) {
-      saveMessagesToStorage(messages);
-    }
-  }, [messages]);
-
-  // Improved token estimation function (more accurate for DeepSeek)
-  const estimateTokens = (text: string): number => {
-    // More accurate estimation: English text averages ~3.5 chars per token
-    // Account for punctuation, spaces, and special characters
-    const words = text.split(/\s+/).length;
-    const chars = text.length;
-    const estimatedTokens = Math.ceil((chars * 0.75 + words * 1.3) / 2);
-    return Math.max(estimatedTokens, Math.ceil(chars / 4)); // Fallback to simple estimation
-  };
-
-  // Smart context management with sliding window approach
-  const getOptimizedContext = (messages: Message[], maxTokens: number): Message[] => {
-    const SYSTEM_PROMPT_TOKENS = estimateTokens(SYSTEM_PROMPT);
-    const RESPONSE_BUFFER = 8192;
-    const availableTokens = maxTokens - SYSTEM_PROMPT_TOKENS - RESPONSE_BUFFER;
-    
-    let totalTokens = 0;
-    const optimizedMessages: Message[] = [];
-    
-    // Always keep the most recent messages (sliding window)
-    for (let i = messages.length - 1; i >= 0; i--) {
-      const message = messages[i];
-      const messageTokens = estimateTokens(message.content);
-      
-      if (totalTokens + messageTokens <= availableTokens) {
-        optimizedMessages.unshift(message);
-        totalTokens += messageTokens;
-      } else {
-        // If we can't fit the full message, try to compress it
-        const compressedContent = compressMessage(message.content, availableTokens - totalTokens);
-        if (compressedContent && compressedContent !== message.content) {
-          optimizedMessages.unshift({
-            ...message,
-            content: compressedContent
-          });
-          totalTokens += estimateTokens(compressedContent);
-        }
-        break;
-      }
-    }
-    
-    return optimizedMessages;
-  };
-
-  // Compress message content to fit within token limit
-  const compressMessage = (content: string, maxTokens: number): string | null => {
-    const estimatedTokens = estimateTokens(content);
-    if (estimatedTokens <= maxTokens) return content;
-    
-    // Try different compression strategies
-    const strategies = [
-      // Strategy 1: Keep first and last parts
-      (text: string) => {
-        const words = text.split(' ');
-        if (words.length <= 20) return text;
-        const firstPart = words.slice(0, 10).join(' ');
-        const lastPart = words.slice(-10).join(' ');
-        return `${firstPart}... [compressed] ...${lastPart}`;
-      },
-      
-      // Strategy 2: Summarize middle section
-      (text: string) => {
-        const sentences = text.split(/[.!?]+/).filter(s => s.trim());
-        if (sentences.length <= 3) return text;
-        const firstSentence = sentences[0];
-        const lastSentence = sentences[sentences.length - 1];
-        return `${firstSentence}... [${sentences.length - 2} more sentences] ...${lastSentence}`;
-      },
-      
-      // Strategy 3: Extract key phrases
-      (text: string) => {
-        const words = text.split(/\s+/);
-        const keyWords = words.filter(word => 
-          word.length > 4 && 
-          !['this', 'that', 'with', 'from', 'they', 'have', 'been', 'were', 'said', 'each', 'which', 'their', 'time', 'will', 'about', 'there', 'could', 'other', 'after', 'first', 'well', 'also', 'where', 'much', 'some', 'very', 'when', 'here', 'just', 'into', 'over', 'think', 'back', 'then', 'them', 'these', 'so', 'its', 'now', 'find', 'any', 'new', 'work', 'part', 'take', 'get', 'place', 'made', 'live', 'where', 'after', 'back', 'little', 'only', 'round', 'man', 'year', 'came', 'show', 'every', 'good', 'me', 'give', 'our', 'under', 'name', 'very', 'through', 'just', 'form', 'sentence', 'great', 'think', 'say', 'help', 'low', 'line', 'differ', 'turn', 'cause', 'much', 'mean', 'before', 'move', 'right', 'boy', 'old', 'too', 'same', 'she', 'all', 'there', 'when', 'up', 'use', 'her', 'word', 'how', 'said', 'an', 'each', 'which', 'do', 'their', 'time', 'will', 'about', 'if', 'up', 'out', 'many', 'then', 'them', 'can', 'only', 'other', 'new', 'some', 'what', 'time', 'very', 'when', 'much', 'then', 'them', 'can', 'only', 'other', 'new', 'some', 'what', 'time', 'very', 'when', 'much', 'then', 'them', 'can', 'only', 'other', 'new', 'some', 'what'].includes(word.toLowerCase())
-        );
-        return keyWords.slice(0, 15).join(' ') + '...';
-      }
-    ];
-    
-    for (const strategy of strategies) {
-      const compressed = strategy(content);
-      if (estimateTokens(compressed) <= maxTokens) {
-        return compressed;
-      }
-    }
-    
-    return null; // Couldn't compress enough
-  };
-
-  // Check if context limit would be exceeded (updated for 128K context)
-  const checkContextLimit = (newMessageContent: string): boolean => {
-    const CONTEXT_LIMIT = 300000; // Use 120K out of 128K (leave buffer)
-    const SYSTEM_PROMPT_TOKENS = estimateTokens(SYSTEM_PROMPT);
-    const RESPONSE_BUFFER = 8192;
-
-    const currentTokens = messages.reduce((total, msg) => total + estimateTokens(msg.content), 0);
-    const newMessageTokens = estimateTokens(newMessageContent);
-    const totalTokens = SYSTEM_PROMPT_TOKENS + currentTokens + newMessageTokens + RESPONSE_BUFFER;
-
-    return totalTokens >= CONTEXT_LIMIT;
-  };
-
-  // Create new chat with notification
-  const startNewChatWithNotification = (reason: string) => {
-    // Clear current messages
-    setMessages([]);
-    
-    // Add notification message
-    const notificationMessage: Message = {
-      id: `msg_${Date.now()}_notification`,
-      type: 'assistant',
-      content: `🔄 **New conversation started**\n\n${reason}\n\nYour previous conversation has been optimized to maintain context while staying within token limits. Please continue with your question.`,
-      timestamp: new Date(),
-      isError: false
-    };
-    
-    setMessages([notificationMessage]);
-  };
-
-  // Stop ongoing streaming response
-  const stopStreaming = () => {
-    if (currentAbortController) {
-      currentAbortController.abort();
-      setCurrentAbortController(null);
-    }
-    setIsStreaming(false);
-  };
-
-  // Start a new chat manually
-  const startNewChat = () => {
-    // Stop any ongoing streaming first
-    stopStreaming();
-    
-    // Clear current messages
-    setMessages([]);
-    
-    // Reset scan states
-    setCurrentTarget(null);
-    setGeoData(null);
-    setShodanData(null);
-    setRiskScore(0);
-    setRawApiData({});
-    
-    // Add notification message
-    const notificationMessage: Message = {
-      id: `msg_${Date.now()}_notification`,
-      type: 'assistant',
-      content: `🆕 **New conversation started**\n\nYou've started a fresh conversation. Your previous conversation has been saved. Feel free to ask me anything about cybersecurity, penetration testing, or ethical hacking!`,
-      timestamp: new Date(),
-      isError: false
-    };
-    
-    setMessages([notificationMessage]);
-  };
-
-  // Simple addMessage function
-  const addMessage = (type: 'user' | 'assistant', content: string, isError: boolean = false) => {
-    const newMessage: Message = {
-      id: `msg_${Date.now()}_${Math.random().toString(36).substring(2, 11)}`,
-      type,
-      content,
-      timestamp: new Date(),
-      isError
-    };
-    
-    setMessages(prev => [...prev, newMessage]);
-    
-    // Scroll to bottom after adding message
-    setTimeout(() => scrollToBottom(), 50);
-    
-    return newMessage;
-  };
-
-  const [input, setInput] = useState('');
-  // Report Generation State - declared early so useEffect can reference it
-  const [showReportModal, setShowReportModal] = useState(false);
-  const [isGeneratingReport, setIsGeneratingReport] = useState(false);
-  const [reportContent, setReportContent] = useState('');
-
-  // Removed isLoading state - now using direct streaming
-  // Removed loadingMessage state - now using streaming text
-  const [lastError, setLastError] = useState<ApiError | null>(null);
-  const [retryCount, setRetryCount] = useState(0);
-  const [showBillingPopup, setShowBillingPopup] = useState(false);
-
-  const [showMobileProfile, setShowMobileProfile] = useState(false);
-  
-  // State for managing streaming and abort controller
-  const [isStreaming, setIsStreaming] = useState(false);
-  const [currentAbortController, setCurrentAbortController] = useState<AbortController | null>(null);
-  
-  // Terminal and tool execution state
-  const [showTerminal, setShowTerminal] = useState(false);
-  const [terminalOutputs, setTerminalOutputs] = useState<TerminalOutput[]>([]);
-  
-  // MCP Client instance
-  const mcpClientRef = useRef<MCPClient | null>(null);
-  
-  // Tool execution queue management
-  const toolExecutionQueueRef = useRef<Array<{ name: string; arguments: any }>>([]);
-  const isProcessingToolRef = useRef(false);
-  const toolCompletionResolversRef = useRef<Array<() => void>>([]);
-  
-  // Tool execution hook
-  const {
-    isConnected: isToolServerConnected,
-    isExecuting: isToolExecuting,
-    outputs: toolOutputs,
-    executeTool,
-    cancelExecution,
-    clearOutputs,
-    forceReset
-  } = useToolExecution({
-    onOutput: (output) => {
-      setTerminalOutputs(prev => [...prev, output]);
-    },
-    onComplete: async (exitCode, outputs) => {
-      console.log('✅ Tool execution completed:', exitCode, 'Outputs:', outputs.length);
-      
-      // Resolve any pending tool completion promises
-      if (toolCompletionResolversRef.current.length > 0) {
-        const resolver = toolCompletionResolversRef.current.shift();
-        if (resolver) {
-          resolver();
-        }
-      }
-      
-      // Get only the outputs from THIS command (not accumulated outputs)
-      const toolOutput = outputs
-        .map(output => output.content)
-        .join('\n')
-        .trim();
-      
-      if (toolOutput) {
-        // Exit code 0 = success, anything else = error
-        const hasError = exitCode !== 0;
-        
-        console.log(hasError ? '🔄 Command failed - sending to AI for iteration...' : '✅ Command succeeded - sending results to AI...');
-        
-        // Create appropriate message based on success/failure (but DON'T show it to user)
-        const toolResultMessage = hasError 
-          ? `❌ **Command Failed (Exit Code: ${exitCode})**\n\nOutput:\n\`\`\`\n${toolOutput.substring(0, 3000)}\n\`\`\`\n\n**ITERATION REQUIRED:** The command failed. Analyze what went wrong (1-2 sentences), then IMMEDIATELY EXECUTE the corrected command. Don't just explain - FIX IT and RUN IT NOW.`
-          : `✅ **Command Successful (Exit Code: ${exitCode})**\n\nResults:\n\`\`\`\n${toolOutput.substring(0, 3000)}\n\`\`\`\n\n**Continue the pentest:** Analyze these results and continue. You're free to execute more tools, dig deeper, or provide findings. Keep the momentum going.`;
-        
-        // DON'T add the system message to chat - keep iteration hidden
-        // Just trigger AI analysis silently in the background
-        
-        // Wait a bit to ensure WebSocket is stable before triggering AI analysis
-        setTimeout(() => {
-          sendMessage(false, true, toolResultMessage);
-          
-          // After sending result to AI, process next tool in queue if any
-          // But wait for AI to potentially add more tools first
-          setTimeout(() => {
-            processToolQueueSequentially();
-          }, 3000);
-        }, 500);
-      } else {
-        // Even if no output, resolve the promise and continue with next tool
-        if (toolCompletionResolversRef.current.length > 0) {
-          const resolver = toolCompletionResolversRef.current.shift();
-          if (resolver) {
-            resolver();
-          }
-        }
-        // Continue processing queue
-        setTimeout(() => {
-          processToolQueueSequentially();
-        }, 1000);
-      }
-    },
-    onError: (error) => {
-      console.error('❌ Tool execution error:', error);
-      
-      // Only send certain types of errors to the AI
-      // Connection errors should be handled by the system, not the AI
-      const isConnectionError = error.includes('Not connected') || 
-                                 error.includes('WebSocket') || 
-                                 error.includes('not initialized');
-      
-      if (isConnectionError) {
-        // Add a system message directly without triggering AI
-        setMessages(prev => [...prev, {
-          id: Date.now().toString(),
-          type: 'assistant' as const,
-          content: `⚠️ **Connection Issue**\n\n${error}\n\nThe system is attempting to reconnect automatically. If the issue persists, please refresh the page.`,
-          timestamp: new Date(),
-          isError: true
-        }]);
-      } else {
-        // For other errors (authentication, validation, etc.), ask AI for help
-        const errorMessage = `System error occurred: ${error}\n\nPlease help the user understand this error and what they should do to fix it.`;
-        
-        setMessages(prev => [...prev, {
-          id: Date.now().toString(),
-          type: 'user' as const,
-          content: errorMessage,
-          timestamp: new Date()
-        }]);
-        
-        // Trigger AI analysis with delay
-        setTimeout(() => {
-          sendMessage(false, true, errorMessage); // Pass error message directly
-        }, 500);
-      }
-    }
-  });
-  
-  // Handler for direct command execution from terminal
-  const handleDirectCommand = useCallback((command: string) => {
-    if (!isToolServerConnected || isToolExecuting) return;
-    
-    // Show the command in terminal
-    setTerminalOutputs(prev => [...prev, {
-      type: 'command',
-      content: `$ ${command}`,
-      timestamp: new Date()
-    }]);
-    
-    // Execute the raw command
-    executeTool('raw_command', { command });
-  }, [isToolServerConnected, isToolExecuting, executeTool]);
-  
-  // Refs for DOM elements
-  const isMobile = useIsMobile();
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
-  const inputBarRef = useRef<HTMLDivElement>(null);
-  const streamingUpdateRef = useRef<number | null>(null);
   const userScrolledRef = useRef(false);
   const lastScrollHeightRef = useRef(0);
   const [showScrollButton, setShowScrollButton] = useState(false);
+  const [isStreaming, setIsStreaming] = useState(false);
+  const [currentAbortController, setCurrentAbortController] = useState<AbortController | null>(null);
+  const [showBillingPopup, setShowBillingPopup] = useState(false);
+  const [showMobileProfile, setShowMobileProfile] = useState(false);
+  const [terminalOutputs, setTerminalOutputs] = useState<TerminalOutput[]>([]);
 
-
-
-  // Removed loading messages - now using streaming text display
-
-  // Smart scroll - only auto-scroll if user hasn't manually scrolled up
-  const scrollToBottom = useCallback((force: boolean = false) => {
-    if (!messagesContainerRef.current) return;
-    
-    const container = messagesContainerRef.current;
-    const isNearBottom = container.scrollHeight - container.scrollTop - container.clientHeight < 100;
-    
-    // Auto-scroll if user is near bottom or force is true
-    if (force || isNearBottom || !userScrolledRef.current) {
-      requestAnimationFrame(() => {
-        if (messagesEndRef.current) {
-          messagesEndRef.current.scrollIntoView({ behavior: 'smooth', block: 'end' });
-        }
-      });
-    }
+  // Local Storage Helpers
+  const saveMessagesToStorage = useCallback((msgs: Message[]) => {
+    try { localStorage.setItem('hex_messages', JSON.stringify(msgs)); } catch (e) {}
   }, []);
 
-  // Detect manual scroll by user
-  const handleScroll = useCallback(() => {
-    if (!messagesContainerRef.current) return;
-    
-    const container = messagesContainerRef.current;
-    const isAtBottom = container.scrollHeight - container.scrollTop - container.clientHeight < 50;
-    
-    // Show/hide scroll button based on position
-    setShowScrollButton(!isAtBottom);
-    
-    // If user scrolled up, mark it
-    if (!isAtBottom && container.scrollTop < lastScrollHeightRef.current) {
-      userScrolledRef.current = true;
-    } else if (isAtBottom) {
-      // If user scrolled back to bottom, reset the flag
-      userScrolledRef.current = false;
-    }
-    
-    lastScrollHeightRef.current = container.scrollTop;
-  }, []);
-
-  // Auto-scroll on new messages, but respect user scroll position
-  useEffect(() => {
-    scrollToBottom(false);
-  }, [messages, scrollToBottom]);
-
-
-
-  const handleApiError = (error: ApiError) => {
-    // Add error as a HEX message in the chat
-    addMessage('assistant', `❌ ${error.message}`, true);
-    setLastError(error); // Keep for retry logic
-  };
-
-
-
-  // Removed loading animation - now using streaming text display
-
-  // Sequential tool execution handler (must be defined before sendMessage)
-  const processToolQueueSequentially = useCallback(async () => {
-    // Don't start if already processing or queue is empty
-    if (isProcessingToolRef.current || toolExecutionQueueRef.current.length === 0) {
-      return;
-    }
-    
-    // Wait if a tool is currently executing
-    if (isToolExecuting) {
-      console.log('⏳ Tool already executing, will process queue after completion...');
-      return;
-    }
-    
-    isProcessingToolRef.current = true;
-    
+  const loadMessagesFromStorage = useCallback((): Message[] => {
     try {
-      // Execute ONLY the first tool in queue, then wait for AI analysis
-      // AI will decide next steps after seeing the result
-      const nextTool = toolExecutionQueueRef.current.shift();
-      if (!nextTool) {
-        isProcessingToolRef.current = false;
-        return;
+      const saved = localStorage.getItem('hex_messages');
+      if (saved) {
+        return JSON.parse(saved).map((msg: any) => {
+          const timestamp = new Date(msg.timestamp);
+          return { 
+            ...msg, 
+            timestamp: !isNaN(timestamp.getTime()) ? timestamp : new Date() 
+          };
+        });
       }
-      
-      const toolMessage = `🔧 Executing: ${nextTool.name}`;
-      addMessage('assistant', toolMessage, false);
-      console.log('🚀 Executing tool sequentially:', nextTool.name, 'with args:', nextTool.arguments, '(Queue remaining:', toolExecutionQueueRef.current.length, ')');
-      
-      // Create a resolver that will be called when tool completes
-      const completionPromise = new Promise<void>((resolve) => {
-        toolCompletionResolversRef.current.push(resolve);
-      });
-      
-      // Execute the tool - onComplete callback will resolve the promise and send result to AI
-      console.log('🎬 About to call executeTool with:', nextTool.name, nextTool.arguments);
-      executeTool(nextTool.name, nextTool.arguments);
-      console.log('✅ executeTool called, waiting for completion...');
-      
-      // Wait for tool to complete
-      await completionPromise;
-      
-      console.log('✅ Tool execution completed, AI will analyze and decide next steps...');
-      
-    } catch (error) {
-      console.error('❌ Error processing tool queue:', error);
-    } finally {
-      isProcessingToolRef.current = false;
+    } catch (e) {
+      console.error("Storage Decode Error:", e);
     }
-  }, [isToolExecuting, executeTool, addMessage]);
+    return [];
+  }, []);
 
-  // Generate Professional Report
-  const generateReport = async () => {
-    if (messages.length === 0) return;
+  const saveStateToStorage = useCallback((state: any) => {
+    if (!state || !state.target) return;
+    try { localStorage.setItem('hex_active_investigation', JSON.stringify(state)); } catch (e) {}
+  }, []);
 
-    messagesSnapshotRef.current = [...messages];
-    setIsGeneratingReport(true);
-    setShowReportModal(true);
-    setReportContent(''); // Clear previous report
-
-    // Compile the chat history into a readable format for the AI
-    const sessionContext = messages.slice(-10).map(m => `${m.type === 'user' ? 'USER' : 'HEX AI'}: ${m.content.substring(0, 500)}`).join('\n\n');
-
-    const reportPrompt = `You are Hex AI, a Senior Penetration Tester. Generate a professional, executive-level cybersecurity assessment report based ONLY on the following chat session. 
-    
-    Format the report in clean Markdown. Include:
-    1. Executive Summary
-    2. Scope/Target (extract from the user's inputs)
-    3. Detailed Findings (based ONLY on the real Shodan/VirusTotal API data discussed)
-    4. Risk Assessment (Critical/High/Medium/Low)
-    5. Actionable Recommendations
-
-    Do NOT invent vulnerabilities that weren't discussed in the chat.
-    
-    CHAT SESSION TO ANALYZE:
-    ${sessionContext}`;
-
+  const loadStateFromStorage = useCallback(() => {
     try {
-      const { sendToDeepSeek } = await import('@/lib/deepseek-client');
-      let fullReport = '';
+      const saved = localStorage.getItem('hex_active_investigation');
+      return saved ? JSON.parse(saved) : null;
+    } catch (e) { return null; }
+  }, []);
 
-      // Use your existing DeepSeek connection to stream the report!
-      await sendToDeepSeek(
-        [{ role: 'user', content: reportPrompt }],
-        "You are a professional cybersecurity report generator.",
-        (text) => {
-          fullReport += text;
-          setReportContent(fullReport); // Stream text into the modal
-        },
-        () => {
-          setIsGeneratingReport(false); // Done
-        },
-        (error) => {
-          setReportContent(`Error generating report: ${error.message}`);
-          setIsGeneratingReport(false);
-        }
-      );
-    } catch (error) {
-      console.error(error);
-      setReportContent('Failed to initialize report generation.');
-      setIsGeneratingReport(false);
+  // Sync Logic
+  useEffect(() => {
+    const msgs = loadMessagesFromStorage();
+    if (msgs.length > 0) setMessages(msgs);
+
+    const state = loadStateFromStorage();
+    if (state && state.target) {
+      setCurrentTarget(state.target);
+      setRiskScore(state.riskScore || 0);
+      setGeoData(state.geoData || null);
+      setShodanData(state.shodanData || null);
+      setSubdomains(state.subdomains || []);
+      setRawApiData(state.rawApiData || {});
     }
-  };
+  }, [loadMessagesFromStorage, loadStateFromStorage]);
 
-  const handleDownloadReport = () => {
-    if (!reportContent) return;
-    
-    const blob = new Blob([reportContent], { type: 'text/markdown' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `Hex-Security-Assessment-${new Date().toISOString().split('T')[0]}.md`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-  };
+  // Smart Scroll Sentinel - keeps focus during history transitions
+  useEffect(() => {
+    if (isHistoryLoading) {
+      // Stage 1: Instant Snap to Bottom
+      scrollToBottom(false);
+      
+      const timer = setTimeout(() => {
+        // Stage 2: Smooth Adjustment after layout stabilizes
+        scrollToBottom(true);
+        setIsHistoryLoading(false);
+      }, 800);
+      return () => clearTimeout(timer);
+    }
+  }, [isHistoryLoading, messages, currentTarget]);
 
-  const sendMessage = async (isRetry: boolean = false, autoTrigger: boolean = false, directMessage?: string) => {
-    const messageToSend = directMessage || input.trim();
-    // Skip input check if this is an auto-triggered analysis or direct message
-    if (!directMessage && !autoTrigger && !messageToSend) return;
+  useEffect(() => {
+    if (messages.length > 0) saveMessagesToStorage(messages);
+    if (currentTarget) {
+      saveStateToStorage({ target: currentTarget, riskScore, geoData, shodanData, subdomains, rawApiData });
+    }
+  }, [messages, currentTarget, riskScore, geoData, shodanData, subdomains, rawApiData, saveStateToStorage, saveMessagesToStorage]);
 
-    // Reset scan states for a fresh analysis
+  // Actions
+  const startNewChat = () => {
+    if (currentAbortController) currentAbortController.abort();
+    // Atomic clear of all investigative state
     setCurrentTarget(null);
     setGeoData(null);
     setShodanData(null);
     setRiskScore(0);
     setSubdomains([]);
     setRawApiData({});
+    setMessages([]);
+    localStorage.removeItem('hex_active_investigation');
+    localStorage.removeItem('hex_messages');
+    
+    setTimeout(() => {
+      const notification: Message = {
+        id: `msg_${Date.now()}`,
+        type: 'assistant',
+        content: `🆕 **New investigation started**\n\nHow can I help you clear the next target?`,
+        timestamp: new Date()
+      };
+      setMessages([notification]);
+    }, 10);
+  };
 
-    // Check authentication
-    if (!isAuthenticated) {
-      handleApiError({
-        type: 'client',
-        message: 'Please sign in with GitHub to use Hex AI assistant.',
-        status: 401,
-        retryable: false,
+  const loadSavedScan = (scan: any) => {
+    if (!scan.full_data) {
+      startNewChat();
+      setCurrentTarget(scan.target);
+      setTimeout(() => sendMessage(false, false, `analyze ${scan.target}`), 500);
+      return;
+    }
+    const data = scan.full_data;
+    const restoredMessages = (data.messages || []).map((m: any) => ({
+      ...m,
+      timestamp: new Date(m.timestamp)
+    }));
+    
+    // Clear old state first to prevent "Bleed"
+    setCurrentTarget(null);
+    setGeoData(null);
+    setShodanData(null);
+    setRiskScore(0);
+
+    // Apply new investigation state
+    setMessages(restoredMessages);
+    setCurrentTarget(data.target || scan.target);
+    setRiskScore(data.riskScore || data.risk_score || scan.risk_score || 0);
+    setGeoData(data.geoData || null);
+    setShodanData(data.shodanData || null);
+    setSubdomains(data.subdomains || []);
+    setRawApiData(data.rawApiData || {});
+    
+    // Ghost Scan Guard: Hard block any auto-triggering scans
+    setIsScanning(false);
+    setIsHistoryLoading(true);
+  };
+
+  const generatePDFReport = async () => {
+    if (!currentTarget) return;
+    setIsGeneratingPDF(true);
+    try {
+      const doc = new jsPDF('p', 'mm', 'a4');
+      const pageWidth = doc.internal.pageSize.getWidth();
+      doc.setFillColor(0, 0, 0);
+      doc.rect(0, 0, pageWidth, 25, 'F');
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(22);
+      doc.setTextColor(52, 211, 153);
+      doc.text('HEX AI', 15, 16);
+      doc.setFontSize(10);
+      doc.setTextColor(255, 255, 255);
+      doc.text('SECURITY INTELLIGENCE ADVISORY', 15, 21);
+      doc.setFontSize(8);
+      doc.text(`REPORT ID: ${Math.random().toString(36).substring(7).toUpperCase()}`, pageWidth - 60, 12);
+      doc.text(`DATE: ${new Date().toLocaleString()}`, pageWidth - 60, 17);
+
+      doc.setTextColor(0, 0, 0);
+      doc.setFontSize(14);
+      doc.text(`Investigation Target: ${currentTarget.toUpperCase()}`, 15, 45);
+      doc.setDrawColor(200, 200, 200);
+      doc.line(15, 48, pageWidth - 15, 48);
+
+      // Section: Assessment
+      doc.setFontSize(11);
+      doc.setTextColor(100, 100, 100);
+      doc.text('THREAT ASSESSMENT METRIC', 15, 58);
+
+      // Risk Assessment Infographic
+      const riskColor = riskScore >= 70 ? [239, 68, 68] : riskScore >= 40 ? [249, 115, 22] : riskScore >= 20 ? [234, 179, 8] : [52, 211, 153];
+      doc.setFillColor(31, 41, 55);
+      doc.rect(15, 62, pageWidth - 30, 8, 'F');
+      doc.setFillColor(riskColor[0], riskColor[1], riskColor[2]);
+      doc.rect(15, 62, (pageWidth - 30) * (Math.max(riskScore, 5) / 100), 8, 'F');
+      doc.setFontSize(9);
+      doc.setTextColor(255, 255, 255);
+      doc.text(`Risk Metric: ${riskScore}%`, pageWidth / 2, 67.5, { align: 'center' });
+
+      doc.setTextColor(100, 100, 100);
+      doc.setFontSize(10);
+      doc.text('TACTICAL INFRASTRUCTURE DATA', 15, 80);
+      doc.setDrawColor(229, 231, 235);
+      doc.line(15, 82, pageWidth - 15, 82);
+      
+      doc.setTextColor(0, 0, 0);
+      doc.text(`> TARGET: ${currentTarget.toUpperCase()}`, 15, 90);
+      doc.text(`> NODE INFRA: ${shodanData?.split('\n')[0] || 'N/A'}`, 15, 96);
+      doc.text(`> GEOLOCATION: ${geoData?.split('\n')[0] || 'N/A'}`, 15, 102);
+      doc.text(`> SUBDOMAINS: ${subdomains.length} confirmed nodes`, 15, 108);
+
+      doc.setTextColor(0, 0, 0);
+      doc.setFontSize(14);
+      doc.text('Strategic Intelligence Summary', 15, 125);
+      doc.line(15, 128, pageWidth - 15, 128);
+      
+      const assistantMessage = [...messages].reverse().find(m => m.type === 'assistant')?.content || 'No summary available.';
+      
+      const sanitizedLines = assistantMessage
+        .replace(/[^\x00-\x7F]/g, "")
+        .replace(/[*#]/g, "")
+        .split('\n')
+        .map(line => line.trim())
+        .filter(line => line.length > 0);
+
+      let currentY = 138;
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(10);
+      
+      sanitizedLines.forEach(line => {
+        if (line.match(/^[A-Z\s]+:/)) {
+          doc.setFont('helvetica', 'bold');
+          doc.setTextColor(16, 185, 129); // Emerald
+          doc.text(`>> ${line}`, 15, currentY);
+          currentY += 6;
+          doc.setFont('helvetica', 'normal');
+          doc.setTextColor(0, 0, 0);
+        } else {
+          const lines = doc.splitTextToSize(line, pageWidth - 35);
+          doc.text(lines, 20, currentY);
+          currentY += (lines.length * 5) + 2;
+        }
+        
+        if (currentY > 270) {
+          doc.addPage();
+          currentY = 25;
+        }
       });
-      return;
-    }
 
-    // 1. Initial usage check (fast)
-    if (!isRetry && !autoTrigger && !isPremium && !canSendMessage) {
-      console.log('❌ Daily message limit reached - showing billing popup');
-      setShowBillingPopup(true);
-      return;
-    }
-
-    // 2. Increment usage BEFORE any scanning state is changed
-    if (!isRetry && !autoTrigger && !isPremium) {
-      const success = await incrementUsage();
-      if (!success) {
-        console.log('❌ Daily message limit reached during increment');
-        setShowBillingPopup(true);
-        return;
+      // Page Footers
+      const pageCount = doc.internal.pages.length - 1;
+      for(let i = 1; i <= pageCount; i++) {
+        doc.setPage(i);
+        doc.setDrawColor(52, 211, 153);
+        doc.setLineWidth(0.5);
+        doc.rect(5, 5, pageWidth - 10, doc.internal.pageSize.getHeight() - 10);
+        doc.setFontSize(8);
+        doc.setTextColor(150, 150, 150);
+        doc.text(`CONFIDENTIAL SECURITY ADVISORY - HEX AI - Page ${i} of ${pageCount}`, pageWidth / 2, 287, { align: 'center' });
       }
-    } else if (autoTrigger && !isRetry && !isPremium) {
-      const success = await incrementUsage();
-      if (!success) return; 
-    }
+      doc.save(`HEX-Report-${currentTarget.toUpperCase()}.pdf`);
+    } catch (err) { console.error(err); } finally { setIsGeneratingPDF(false); }
+  };
 
-    // Check context limit and start new chat if needed (only for new messages, not retries)
-    if (!isRetry && checkContextLimit(messageToSend)) {
-      const currentTokens = messages.reduce((total, msg) => total + estimateTokens(msg.content), 0);
-      const estimatedTotal = Math.round((currentTokens + estimateTokens(SYSTEM_PROMPT) + estimateTokens(messageToSend)) / 1000);
+  const estimateTokens = (text: string) => Math.max(Math.ceil(text.length / 4), 10);
 
-      startNewChatWithNotification(
-        `Context limit approaching (~${estimatedTotal}K tokens). Starting fresh conversation to ensure optimal AI performance. Your previous conversation has been preserved with smart context optimization.`
-      );
-    }
+  const sendMessage = async (isRetry = false, autoTrigger = false, directMessage?: string) => {
+    const msg = directMessage || input.trim();
+    if (!msg && !autoTrigger) return;
+    if (!isAuthenticated) return addMessage('assistant', 'Please sign in first.', true);
 
-    // Extract target and fetch real data before sending to AI
+    if (!isRetry && !autoTrigger && !isPremium && !canSendMessage) return setShowBillingPopup(true);
+    if (!isRetry && !autoTrigger && !isPremium) await incrementUsage();
+
     const { extractTarget, queryVirusTotal, queryGeolocation, queryWhois, queryShodan, querySubdomains, calculateRiskScore, getRiskLabel } = await import('@/lib/deepseek-client');
-    const target = extractTarget(messageToSend);
+    const target = extractTarget(msg);
     let realData = '';
+    
+    // Scoped variables for the scan
+    let scanResults: any = { target: null, score: 0, geo: null, shodan: null, subs: [], raw: {} };
+
     if (target) {
       setCurrentTarget(target);
-      const isPrivateIP = /^(192\.168\.|10\.|172\.(1[6-9]|2[0-9]|3[01])\.)/.test(target);
-      if (isPrivateIP) {
-        realData = `\n\nNote: ${target} is a private/local IP address. This is a local network address — external databases cannot be queried for private IPs.`;
-      } else {
-        const isIP = /^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(target);
-        let effectiveTarget = target;
-        
-        // DNS Resolution logic...
-        if (!isIP) {
-          try {
-            const dnsRes = await fetch(`https://1.1.1.1/dns-query?name=${target}&type=A`, {
-              headers: { 'Accept': 'application/dns-json' }
-            });
-            const dnsData = await dnsRes.json();
-            if (dnsData.Answer && dnsData.Answer.length > 0) {
-              effectiveTarget = dnsData.Answer[0].data;
-            }
-          } catch (e) {
-            console.warn('DNS Resolution failed:', e);
-          }
-        }
-        
-        const [vtResult, geoResult, whoisResult, shodanResult, subdomainsResult] = await Promise.all([
-          queryVirusTotal(target),
-          queryGeolocation(effectiveTarget),
-          !isIP ? queryWhois(target) : Promise.resolve({ formatted: 'WHOIS: Only available for domains.', raw: null }),
-          isIP ? queryShodan(effectiveTarget) : Promise.resolve({ formatted: 'SHODAN: Use WHOIS for domains.', raw: null }),
-          !isIP ? querySubdomains(target) : Promise.resolve({ formatted: 'SUBDOMAINS: N/A for IP addresses.', raw: [] })
-        ]);
+      setIsScanning(true);
+      const isIP = /^\d+\.\d+\.\d+\.\d+$/.test(target);
+      const [vt, geo, whois, shodan, subs] = await Promise.all([
+        queryVirusTotal(target),
+        queryGeolocation(target),
+        !isIP ? queryWhois(target) : Promise.resolve({ formatted: 'N/A', raw: null }),
+        isIP ? queryShodan(target) : Promise.resolve({ formatted: 'N/A', raw: null }),
+        !isIP ? querySubdomains(target) : Promise.resolve({ formatted: 'N/A', raw: [] })
+      ]);
 
-        const vtData = vtResult.formatted;
-        const geoData = geoResult.formatted;
-        const whoisData = whoisResult.formatted;
-        const shodanData = shodanResult.formatted;
-        const subdomainsData = subdomainsResult.formatted;
-
-        const newRawApiData: RawApiData = {};
-        if (vtResult.raw) newRawApiData.virustotal = vtResult.raw;
-        if (shodanResult.raw) newRawApiData.shodan = shodanResult.raw;
-        if (whoisResult.raw) newRawApiData.whois = whoisResult.raw;
-        if (geoResult.raw) newRawApiData.geolocation = geoResult.raw;
-        setRawApiData(newRawApiData);
-        setSubdomains(subdomainsResult.raw || []);
-        
-        const calculatedRiskScore = calculateRiskScore(vtData, geoData, shodanData);
-        const riskLabel = getRiskLabel(calculatedRiskScore);
-        
-        setGeoData(geoData);
-        setShodanData(!isIP ? whoisData : shodanData);
-        setRiskScore(calculatedRiskScore);
-        setIsScanning(false);
-        
-        if (user?.id) {
-          supabase.from('scan_history').insert({
-            user_id: user.id,
-            target: target,
-            risk_score: calculatedRiskScore,
-            verdict: riskLabel,
-          }).then(({ error }) => {
-            if (error) console.warn('History Log Note:', error.message);
-          });
-        }
-        
-        const vtExcerpt = vtData.substring(0, 400);
-        const geoExcerpt = geoData.substring(0, 200);
-        const whoisExcerpt = whoisData.substring(0, 400);
-        const shodanExcerpt = shodanData.substring(0, 400);
-        const subdomainListExcerpt = subdomainsResult.raw ? subdomainsResult.raw.slice(0, 25).join(', ') : 'None';
-        const subdomainCount = subdomainsResult.raw ? subdomainsResult.raw.length : 0;
-        
-        realData = `\n\n[SECURITY SCAN SUMMARY FOR ${target}]\nResolved IP: ${effectiveTarget}\nRisk Score: ${calculatedRiskScore}/100\nVerdict: ${riskLabel}\n\n[VirusTotal]: ${vtExcerpt}...\n\n[Geolocation]: ${geoExcerpt}\n\n[Whois]: ${whoisExcerpt}\n\n[Shodan]: ${shodanExcerpt}...\n\n[Subdomains]: Found ${subdomainCount} subdomains. Partial list: ${subdomainListExcerpt}${subdomainCount > 25 ? '...' : ''}`;
-      }
+      const raw: RawApiData = { virustotal: vt.raw, shodan: shodan.raw, whois: whois.raw, geolocation: geo.raw };
+      setRawApiData(raw);
+      setSubdomains(subs.raw || []);
+      const score = calculateRiskScore(vt.formatted, geo.formatted, !isIP ? whois.formatted : shodan.formatted);
+      setRiskScore(score);
+      setGeoData(geo.formatted);
+      const shodanStr = !isIP ? whois.formatted : shodan.formatted;
+      setShodanData(shodanStr);
+      setIsScanning(false);
+      
+      // Cache results for history archival
+      scanResults = { target, score, geo: geo.formatted, shodan: shodanStr, subs: subs.raw, raw };
+      realData = `\n\n[SYSTEM DATA ATTACHMENT]:\n${vt.formatted}\n${geo.formatted}\n${whois.formatted}\n${shodan.formatted}\n${subs.formatted}`;
     }
 
-    const apiKey = import.meta.env.VITE_GROQ_API_KEY;
-    if (!apiKey) {
-      handleApiError({
-        type: 'client',
-        message: 'Groq API key not found.',
-        status: 0,
-        retryable: true,
-      });
-      return;
-    }
-
-    // Add user message to chat
     if (!isRetry && !autoTrigger) {
-      addMessage('user', messageToSend);
+      addMessage('user', msg);
       setInput('');
-      userScrolledRef.current = false;
       setTimeout(() => scrollToBottom(true), 100);
     }
 
-    setLastError(null);
-
-    // Create AbortController for this request
-    const abortController = new AbortController();
-    setCurrentAbortController(abortController);
+    const abort = new AbortController();
+    setCurrentAbortController(abort);
     setIsStreaming(true);
 
-    // Start loading animation - initialize as null to track it properly
     try {
-      // Create streaming message immediately so user sees it right away
-      const initialMessage = addMessage('assistant', '', false);
-      let streamingMessageId = '';
-      if (initialMessage) {
-        streamingMessageId = initialMessage.id;
-      }
-      
-      // Reset scroll flag when starting a new response
-      userScrolledRef.current = false;
-
-      // Use optimized context management for better token efficiency
-      // Groq models like Llama 3 have relatively small context windows (8k), so we use a safe 6k limit
-      const filteredMessages = messages.filter(msg => !msg.isError).slice(-6);
-      const optimizedMessages = getOptimizedContext(filteredMessages, 6000);
-      
-      const conversationHistory = optimizedMessages.map(msg => ({
-        role: (msg.type === 'user' ? 'user' : 'assistant') as 'user' | 'assistant',
-        content: msg.content
-      }));
-
-      const conversationMessages: Array<{role: 'user' | 'assistant' | 'system', content: string}> = [
-        { role: 'system' as const, content: SYSTEM_PROMPT },
-        ...conversationHistory,
-        { 
-          role: 'user' as const, 
-          // Match the [SYSTEM DATA ATTACHMENT] label from your prompt
-          content: `${messageToSend}\n\n[SYSTEM DATA ATTACHMENT]\n${realData || "No external API data found."}` 
-        }
-      ];
-
-      // Debug: Log the request
-      console.log('📤 Sending to Groq AI:', {
-        messageCount: conversationMessages.length,
-        lastMessage: conversationMessages[conversationMessages.length - 1]?.content?.substring(0, 100)
-      });
-      
-      let fullContent = '';
-      // Send directly to DeepSeek API
+      const initial = addMessage('assistant', '', false);
       const { sendToDeepSeek } = await import('@/lib/deepseek-client');
+      let full = '';
       
-      await sendToDeepSeek(
-        conversationMessages, 
-        SYSTEM_PROMPT,
-        (text) => {
-          fullContent += text;
-          if (streamingUpdateRef.current) {
-            cancelAnimationFrame(streamingUpdateRef.current);
-          }
-          streamingUpdateRef.current = requestAnimationFrame(() => {
-            setMessages(prevMessages =>
-              prevMessages.map(msg =>
-                msg.id === streamingMessageId
-                  ? { ...msg, content: fullContent }
-                  : msg
-              )
-            );
-            streamingUpdateRef.current = null;
+      const chatHistory = messages.slice(-10).map(m => ({
+        role: m.type === 'user' ? 'user' : 'assistant' as 'user' | 'assistant',
+        content: m.content
+      }));
+      
+      const convo = [...chatHistory, { role: 'user' as const, content: `${msg}${realData ? `\n\n[SYSTEM DATA ATTACHMENT]:\n${realData}` : ''}` }];
+
+      await sendToDeepSeek(convo, SYSTEM_PROMPT, (text) => {
+        full += text;
+        setMessages(prev => prev.map(m => m.id === initial.id ? { ...m, content: full } : m));
+        scrollToBottom(true);
+      }, () => {
+        setIsStreaming(false);
+        // Strategic Archive: Save complete investigation to history
+        if (user?.id && scanResults.target) {
+          setMessages(prev => {
+            const bundle = { 
+              messages: prev, 
+              target: scanResults.target, 
+              riskScore: scanResults.score, 
+              geoData: scanResults.geo, 
+              shodanData: scanResults.shodan, 
+              subdomains: scanResults.subs, 
+              rawApiData: scanResults.raw 
+            };
+            
+            supabase.from('scan_history')
+              .insert({ 
+                user_id: user.id, 
+                target: scanResults.target, 
+                risk_score: scanResults.score, 
+                verdict: getRiskLabel(scanResults.score), 
+                full_data: bundle 
+              }).then(() => console.log("📊 Intelligence archived for", scanResults.target));
+            return prev;
           });
-        },
-        () => {
-          if (!fullContent.trim()) {
-            setMessages(prevMessages =>
-              prevMessages.map(msg =>
-                msg.id === streamingMessageId
-                  ? { ...msg, content: 'I received an empty response. Please try again.' }
-                  : msg
-              )
-            );
-          } else {
-            // Guarantee final flush of the complete content
-            setMessages(prevMessages =>
-              prevMessages.map(msg =>
-                msg.id === streamingMessageId ? { ...msg, content: fullContent } : msg
-              )
-            );
-          }
-          setRetryCount(0);
-        },
-        (error) => {
-          setMessages(prevMessages =>
-            prevMessages.map(msg =>
-              msg.id === streamingMessageId
-                ? { ...msg, content: `An error occurred: ${error.message}` }
-                : msg
-            )
-          );
-        },
-        abortController.signal
-      );
-    } catch (error) {
-      console.error('Unexpected error:', error);
-      // Check if it's an abort error
-      if (error.name === 'AbortError') {
-        console.log('Request was aborted by user');
-      } else {
-      handleApiError({
-        type: 'client',
-        message: 'An unexpected error occurred',
-        status: 0,
-        retryable: true,
-      });
-      }
+        }
+      }, (err) => {
+        setIsStreaming(false);
+        addMessage('assistant', err.message, true);
+      }, abort.signal);
+    } catch (error: any) {
+      console.error('Scan Execution Error:', error);
+      setIsStreaming(false);
+      addMessage('assistant', `⚠️ **AI Intelligence Failure**: ${error.message || 'Error communicating with Hex Core.'}`, true);
     } finally {
       setIsStreaming(false);
       setCurrentAbortController(null);
-      // Refresh usage stats in sidebar after scan completes
-      if (!isPremium) {
-        setTimeout(refreshUsage, 500);
-      }
     }
   };
 
-  // Optimized textarea height adjustment - no debounce for instant response
-  const adjustTextareaHeight = useCallback(() => {
-    if (textareaRef.current) {
-      // Reset height to auto to get the correct scrollHeight
-      textareaRef.current.style.height = 'auto';
-      // Set the height to match the content
-      const newHeight = Math.min(textareaRef.current.scrollHeight, isMobile ? 80 : 120);
-      textareaRef.current.style.height = `${newHeight}px`;
+  const addMessage = (type: 'user' | 'assistant', content: string, isError = false) => {
+    const newMessage: Message = { id: `msg_${Date.now()}_${Math.random()}`, type, content, timestamp: new Date(), isError };
+    setMessages(prev => [...prev, newMessage]);
+    setTimeout(() => scrollToBottom(), 50);
+    return newMessage;
+  };
+
+  const scrollToBottom = useCallback((force = false) => {
+    if (!messagesContainerRef.current) return;
+    const container = messagesContainerRef.current;
+    const isNear = container.scrollHeight - container.scrollTop - container.clientHeight < 100;
+    if (force || isNear || !userScrolledRef.current) {
+      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
     }
-  }, [isMobile]);
+  }, []);
 
-  // Auto-adjust textarea height - run immediately without debounce
-  useEffect(() => {
-    adjustTextareaHeight();
-  }, [input, adjustTextareaHeight]);
+  const handleScroll = useCallback(() => {
+    if (!messagesContainerRef.current) return;
+    const isAtBottom = messagesContainerRef.current.scrollHeight - messagesContainerRef.current.scrollTop - messagesContainerRef.current.clientHeight < 50;
+    setShowScrollButton(!isAtBottom);
+    if (!isAtBottom && messagesContainerRef.current.scrollTop < lastScrollHeightRef.current) userScrolledRef.current = true;
+    else if (isAtBottom) userScrolledRef.current = false;
+    lastScrollHeightRef.current = messagesContainerRef.current.scrollTop;
+  }, []);
 
-  // Optimized mobile input focus handling
-  const handleInputFocus = useCallback(() => {
-    if (isMobile && textareaRef.current) {
-      // Prevent page zoom on iOS
-      textareaRef.current.style.fontSize = '16px';
-      
-      // Scroll into view after keyboard appears
-      setTimeout(() => {
-        textareaRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      }, 300);
+  const handleInputFocus = () => { if (isMobile) setTimeout(() => textareaRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 300); };
+  const [input, setInput] = useState('');
+
+  const { isConnected: isToolConnected, isExecuting: isToolExecuting, executeTool } = useToolExecution({
+    onOutput: (o) => setTerminalOutputs(prev => [...prev, o]),
+    onComplete: (code, outs) => {
+      const outText = outs.map(o => o.content).join('\n');
+      if (outText) setTimeout(() => sendMessage(false, true, `Result: ${outText}`), 500);
     }
-  }, [isMobile]);
+  });
 
-  const handleInputBlur = useCallback(() => {
-    if (isMobile) {
-      document.body.classList.remove('keyboard-open');
-      // Reset font size if changed
-      if (textareaRef.current) {
-        textareaRef.current.style.fontSize = '';
-      }
-    }
-  }, [isMobile]);
-
-  // Better placeholders for mobile
-  const mobilePlaceholder = "Ask about cybersecurity, hacking, or pentesting...";
-  const desktopPlaceholder = "Ask about penetration testing, request payloads, or security analysis...";
-
-  // Optimized mobile keyboard handling with better performance
-  useEffect(() => {
-    if (!isMobile) return;
-    const inputBar = inputBarRef.current;
-    if (!inputBar) return;
-
-    let rafId: number | null = null;
-    let lastBottom = '0px';
-
-    function updateInputBarPosition() {
-      if (rafId) return; // Prevent multiple rapid updates
-
-      rafId = requestAnimationFrame(() => {
-        if (window.visualViewport && inputBar) {
-          const viewportHeight = window.visualViewport.height;
-          const windowHeight = window.innerHeight;
-          const keyboardHeight = Math.max(0, windowHeight - viewportHeight - window.visualViewport.offsetTop);
-          const newBottom = keyboardHeight > 10 ? `${keyboardHeight}px` : '0px';
-
-          // Only update if position actually changed to prevent unnecessary reflows
-          if (lastBottom !== newBottom) {
-            inputBar.style.bottom = newBottom;
-            lastBottom = newBottom;
-          }
-        }
-        rafId = null;
-      });
-    }
-
-    // Initial position
-    updateInputBarPosition();
-    
-    // Use passive listeners for better scroll performance
-    const options = { passive: true };
-    window.visualViewport?.addEventListener('resize', updateInputBarPosition, options);
-    window.visualViewport?.addEventListener('scroll', updateInputBarPosition, options);
-    
-    return () => {
-      if (rafId) cancelAnimationFrame(rafId);
-      window.visualViewport?.removeEventListener('resize', updateInputBarPosition);
-      window.visualViewport?.removeEventListener('scroll', updateInputBarPosition);
-      if (inputBar) {
-        inputBar.style.bottom = '0px';
-      }
-    };
-  }, [isMobile]);
+  if (!isAuthenticated) return <AuthCard />;
 
   return (
-    <div className="min-h-screen bg-black text-green-400 font-mono">
-      {/* Minimal Header */}
-      <div className="relative border-b border-green-500/20 bg-black/80 backdrop-blur-md">
-        {/* Hanging glass threads - hidden on mobile */}
-        <div className="absolute top-0 left-1/4 w-px h-4 bg-gradient-to-b from-green-400/30 to-transparent hidden md:block"></div>
-        <div className="absolute top-0 right-1/3 w-px h-3 bg-gradient-to-b from-green-300/20 to-transparent hidden md:block"></div>
-        <div className="absolute top-0 left-3/4 w-px h-5 bg-gradient-to-b from-emerald-400/25 to-transparent hidden md:block"></div>
-        
-        <div className="container mx-auto px-3 py-2 sm:px-4 sm:py-4">
-          <div className="flex items-center justify-between">
-            {/* Logo - Simplified for mobile */}
-            <div className="flex items-center gap-1 sm:gap-3">
-              <div className="relative group">
-                <div className="absolute -inset-1 bg-green-400/10 rounded-lg blur opacity-50 group-hover:opacity-75 transition-opacity hidden sm:block"></div>
-                <div className="relative flex items-center gap-1 sm:gap-2 bg-black/40 backdrop-blur-sm rounded-lg px-1 py-0.5 sm:px-3 sm:py-2 border border-green-500/20">
-                  <Terminal className="h-3 w-3 sm:h-5 sm:w-5 text-green-400" />
-                  <div>
-                    <h1 className="text-xs sm:text-lg font-light text-green-400 tracking-wide">Hex</h1>
-                    <p className="text-xs text-gray-400/70 font-light hidden sm:block">AI Penetration Testing</p>
-                  </div>
-                </div>
-              </div>
-
-              {/* Badge - Hidden on mobile */}
-              <Badge variant="outline" className="hidden sm:flex border-green-500/30 text-green-300/80 px-2 py-1 bg-black/30 backdrop-blur-sm font-light text-xs">
-                v2.0 • Ethical
-              </Badge>
-            </div>
-            
-            {/* Right side - Simplified for mobile */}
-            <div className="flex items-center gap-1 sm:gap-2">
-              {/* New Chat Button - Show when authenticated and not streaming (hidden on mobile since we have it in input) */}
-              {/* Action Buttons Group */}
-              {isAuthenticated && !isMobile && (
-                <div className="flex items-center gap-2">
-                  
-                  {/* New Chat Button */}
-                  {!isStreaming && (
-                    <div 
-                      className="flex items-center gap-1.5 bg-black/40 backdrop-blur-sm rounded-full px-2 py-1 border border-blue-500/20 cursor-pointer hover:bg-blue-500/10 transition-colors"
-                      onClick={startNewChat}
-                      title="Start New Chat"
-                    >
-                      <Plus className="h-3 w-3 text-blue-400" />
-                      <span className="hidden sm:inline text-blue-300/80 text-xs font-light">
-                        New Chat
-                      </span>
-                    </div>
-                  )}
-
-                  {/* History Dashboard Button */}
-                  <div 
-                    className="flex items-center gap-1.5 bg-black/40 backdrop-blur-sm rounded-full px-2 py-1 border border-blue-500/30 cursor-pointer transition-colors hover:bg-blue-500/10 text-blue-300"
-                    onClick={() => setShowHistory(true)}
-                    title="View Scan History Dashboard"
-                  >
-                    <Clock className="h-3 w-3" />
-                    <span className="hidden sm:inline text-xs font-light">
-                      History
-                    </span>
-                  </div>
-
-                  {/* Generate Report Button - Premium Only */}
-                  {isPremium && (
-                    <div 
-                      className="flex items-center gap-1.5 bg-black/40 backdrop-blur-sm rounded-full px-2 py-1 border border-green-500/30 cursor-pointer transition-colors hover:bg-green-500/10 text-green-400 ml-1"
-                      onClick={generateReport}
-                      title="Generate Executive Security Assessment Report"
-                    >
-                      <FileText className="h-3 w-3" />
-                      <span className="hidden sm:inline text-xs font-light">
-                        Report
-                      </span>
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {/* Mobile Profile Button - Only show when authenticated */}
-              {isAuthenticated && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="lg:hidden border-green-500/30 text-green-400 hover:bg-green-500/10 px-1 py-0.5"
-                  onClick={() => setShowMobileProfile(true)}
-                  title="Profile & Upgrade"
-                >
-                  <User className="h-3 w-3" />
-                </Button>
-              )}
-
-
-
-              {/* Authentication - Show sign in on mobile when not authenticated */}
-              <div className={isAuthenticated ? "hidden lg:block" : "block"}>
-                <AuthButton />
-              </div>
-
-              {/* Status - Simplified on mobile */}
-              <div className="flex items-center gap-1 sm:gap-2 bg-black/40 backdrop-blur-sm rounded-full px-1.5 py-1 sm:px-3 sm:py-1.5 border border-green-500/20">
-                <div className="relative">
-                  <div className="w-1.5 h-1.5 bg-green-400 rounded-full"></div>
-                  <div className="absolute inset-0 w-1.5 h-1.5 bg-green-400 rounded-full animate-ping opacity-30"></div>
-                </div>
-                <span className="text-green-300/80 text-xs font-light hidden sm:inline">Online</span>
-              </div>
-            </div>
-          </div>
-        </div>
-        
-        {/* Bottom accent line */}
-        <div className="absolute bottom-0 left-1/2 transform -translate-x-1/2 w-1/3 sm:w-1/2 h-px bg-gradient-to-r from-transparent via-green-400/30 to-transparent"></div>
+    <div className="flex h-screen bg-[#020617] text-green-500 font-mono overflow-hidden relative">
+      {/* Premium Background Grid & Glows */}
+      <div className="absolute inset-0 pointer-events-none overflow-hidden">
+        {/* Animated Grid Pattern */}
+        <div 
+          className="absolute inset-0 opacity-[0.05]" 
+          style={{ 
+            backgroundImage: `linear-gradient(#10b981 1px, transparent 1px), linear-gradient(90deg, #10b981 1px, transparent 1px)`,
+            backgroundSize: '30px 30px'
+          }} 
+        />
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[70%] h-[70%] bg-emerald-500/5 blur-[140px] rounded-full" />
+        <div className="absolute top-[-15%] left-[-15%] w-[50%] h-[50%] bg-emerald-500/15 blur-[140px] rounded-full animate-pulse" />
+        <div className="absolute bottom-[-15%] right-[-15%] w-[50%] h-[50%] bg-indigo-500/10 blur-[140px] rounded-full" />
       </div>
 
-      <div className="h-[calc(100vh-80px)] flex flex-col lg:flex-row">
-        {/* Desktop Sidebar - hidden on mobile */}
-        <div className="hidden lg:block w-80 xl:w-96 flex-shrink-0 p-4 space-y-4">
-          {/* Authentication Card */}
-          <AuthCard />
+      {/* Main Grid Layout */}
+      <div className="flex-1 flex flex-col relative z-10 overflow-hidden">
+        {/* Restored Top Header */}
+        <header className="h-16 flex items-center justify-between px-6 border-b border-white/5 bg-black/40 backdrop-blur-md">
+          <div className="flex items-center gap-6">
+            <div className="flex flex-col">
+              <div className="flex items-center gap-2">
+                <Shield className="h-5 w-5 text-green-400" />
+                <span className="text-xl font-black tracking-tighter text-white uppercase italic">Hex</span>
+              </div>
+              <span className="text-[9px] text-gray-500 uppercase tracking-widest font-bold ml-1">AI Penetration Testing</span>
+            </div>
+            
+            <div className="hidden lg:flex items-center px-3 py-1 bg-white/5 border border-white/10 rounded-full">
+              <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest flex items-center gap-2">
+                v2.0 <span className="text-green-500/50">•</span> Ethical
+              </span>
+            </div>
+          </div>
 
-          {/* Global Threat Intel Feed */}
-          {isAuthenticated && (
-            <ThreatIntelFeed />
-          )}
-        </div>
+          <div className="flex items-center gap-3">
+            <Button variant="ghost" size="sm" onClick={startNewChat} className="bg-white/5 hover:bg-white/10 text-white text-[10px] h-8 px-4 border border-white/10 rounded-full font-bold uppercase tracking-widest flex items-center gap-2 transition-all">
+              <Plus className="h-3 w-3" /> New Chat
+            </Button>
+            
+            <Button variant="ghost" size="sm" onClick={() => setShowHistory(true)} className="bg-white/5 hover:bg-white/10 text-white text-[10px] h-8 px-4 border border-white/10 rounded-full font-bold uppercase tracking-widest flex items-center gap-2 transition-all">
+              <Clock className="h-3 w-3" /> History
+            </Button>
 
-        {/* Main Chat Area */}
-        <div className="flex-1 flex flex-col min-w-0 p-2 sm:p-3 md:p-4">
-          {/* Messages */}
-          <div className={
-            `flex-1 bg-gray-900/50 border border-green-500/30 rounded-lg overflow-hidden backdrop-blur-sm mb-2 sm:mb-3 md:mb-4 ${isMobile ? 'pb-20' : ''}`
-          }>
-            <div 
-              ref={messagesContainerRef}
-              onScroll={handleScroll}
-              className={
-                `message-container h-full overflow-y-auto p-2 sm:p-3 md:p-4 lg:p-6 ${isMobile ? 'pb-16' : ''}`
-              }
-            >
-              {currentTarget && (
-                <TargetOverview 
-                  target={currentTarget} 
-                  geoData={geoData} 
-                  shodanData={shodanData} 
-                  riskScore={riskScore} 
-                  isLoading={isScanning}
-                  rawApiData={rawApiData}
-                  subdomains={subdomains}
-                  isPremium={isPremium}
-                />
-              )}
-              {messages.length === 0 ? (
-                <div className="h-full flex items-center justify-center">
-                  <div className="text-center space-y-3 sm:space-y-4 md:space-y-6 px-2 sm:px-4">
-                    <Terminal className="h-12 w-12 sm:h-16 sm:w-16 md:h-20 md:w-20 text-green-400 mx-auto" />
-                    <div>
-                      <h3 className="text-lg sm:text-xl md:text-2xl text-green-400 mb-2 sm:mb-3">Welcome to Hex</h3>
-                      <p className="text-gray-400 text-xs sm:text-sm md:text-base lg:text-lg max-w-lg mx-auto">
-                        Your AI assistant for ethical hacking and penetration testing. 
-                        Start by selecting a preset or asking a security-related question.
-                      </p>
+            {currentTarget && (
+              <Button variant="ghost" size="sm" onClick={generatePDFReport} disabled={isGeneratingPDF} className="bg-green-600/10 hover:bg-green-600/20 text-green-400 text-[10px] h-8 px-4 border border-green-500/20 rounded-full font-bold uppercase tracking-widest flex items-center gap-2 transition-all">
+                <FileText className="h-3 w-3" /> {isGeneratingPDF ? 'Working...' : 'Report'}
+              </Button>
+            )}
+
+            <Button variant="ghost" size="sm" className="bg-white/5 px-2 h-8 rounded-full border border-white/10 text-white hover:bg-white/10">
+              <User className="h-4 w-4" />
+            </Button>
+            
+            <div className="flex items-center gap-1.5 px-3 py-1 bg-green-500/10 rounded-full border border-green-500/20">
+              <div className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse shadow-[0_0_8px_rgba(34,197,94,0.6)]" />
+              <span className="text-[10px] font-bold text-green-400 uppercase tracking-widest">Online</span>
+            </div>
+          </div>
+        </header>
+
+        {/* Dashboard Panels */}
+        <div className="flex-1 flex overflow-hidden">
+          {/* Left Operations Sidebar */}
+          <aside className="w-80 border-r border-white/5 p-4 flex flex-col gap-4 bg-black/20 backdrop-blur-sm hidden lg:flex">
+            <AuthCard />
+            <div className="flex-1 overflow-hidden flex flex-col gap-2 rounded-xl border border-white/5 bg-black/40 shadow-inner">
+               <ThreatIntelFeed />
+            </div>
+          </aside>
+
+          {/* Main Intelligence Hub */}
+          <main className="flex-1 flex flex-col relative overflow-hidden bg-black/20">
+            {/* Scrollable Container for Intelligence + Chat */}
+            <div ref={messagesContainerRef} onScroll={handleScroll} className="flex-1 overflow-y-auto scrollbar-none pb-32">
+               <div className="max-w-5xl mx-auto p-4 space-y-6">
+                  {/* Hero Intelligence Dashboard */}
+                  {currentTarget && (
+                    <div className="animate-in fade-in slide-in-from-top-4 duration-500">
+                      <TargetOverview 
+                         target={currentTarget} 
+                         geoData={geoData} 
+                         shodanData={shodanData} 
+                         riskScore={riskScore} 
+                         isLoading={isScanning} 
+                         rawApiData={rawApiData} 
+                         subdomains={subdomains} 
+                         isPremium={isPremium} 
+                      />
                     </div>
-                  </div>
-                </div>
-              ) : (
-                <div className="space-y-3 sm:space-y-4 md:space-y-6">
-                  {messages.map((message) => {
-                    return (
-                      <div key={message.id} className="chat-message group">
-                        <div className="flex items-center gap-2 sm:gap-3 mb-2 sm:mb-3">
-                          <div className={`flex items-center gap-1.5 sm:gap-2 px-2 sm:px-3 py-1 rounded-full text-xs font-semibold ${
-                            message.type === 'user' 
-                              ? 'bg-blue-500/20 border border-blue-500/50 text-blue-300' 
-                              : 'bg-green-500/20 border border-green-500/50 text-green-300'
-                          }`}>
-                            {message.type === 'user' ? (
-                              <>
-                                <div className="w-1.5 h-1.5 sm:w-2 sm:h-2 bg-blue-400 rounded-full"></div>
-                                USER
-                              </>
-                            ) : (
-                              <>
-                                <div className="w-1.5 h-1.5 sm:w-2 sm:h-2 bg-green-400 rounded-full"></div>
-                                HEX
-                              </>
-                            )}
-                          </div>
-                          <span className="text-xs text-gray-500 opacity-70 group-hover:opacity-100 transition-opacity">
-                            {message.timestamp.toLocaleTimeString()}
-                          </span>
-                        </div>
-                        <div className={`relative rounded-xl p-2 sm:p-3 md:p-4 lg:p-6 shadow-lg transition-all duration-200 hover:shadow-xl ${
-                          message.type === 'user' 
-                            ? 'bg-gradient-to-br from-blue-900/30 to-blue-800/20 border border-blue-500/30 ml-1 sm:ml-2 md:ml-4' 
-                            : 'bg-gradient-to-br from-green-900/30 to-green-800/20 border border-green-500/30 mr-1 sm:mr-2 md:mr-4'
-                        }`}>
-                          <div className={`absolute top-0 left-0 w-1 h-full rounded-l-xl ${
-                            message.type === 'user' ? 'bg-blue-400' : 'bg-green-400'
-                          }`}></div>
-                          <div className="streaming-text prose prose-invert max-w-none">
-                            <ReactMarkdown 
-                              components={{
-                                p: ({ children, ...props }) => <p className="mb-2 sm:mb-3 last:mb-0 text-sm sm:text-sm leading-relaxed text-gray-200" {...props}>{children}</p>,
-                                code: ({ children, node, ...rest }) => {
-                                  // Treat as inline if node is not present or node.tagName is not 'code'
-                                  const isInline = !node || node.tagName !== 'code';
-                                  if (isInline) {
-                                    return (
-                                      <code className="bg-gray-800 px-1 sm:px-1.5 py-0.5 rounded text-green-300 font-mono text-xs" {...rest}>
-                                        {children}
-                                      </code>
-                                    );
-                                  }
-                                  // For block code, let pre handle it
-                                  return <code {...rest}>{children}</code>;
-                                },
-                                pre: CopyablePreBlock,
-                                strong: ({ children, ...props }) => <strong className="text-green-300 font-semibold" {...props}>{children}</strong>,
-                                em: ({ children, ...props }) => <em className="text-blue-300 italic" {...props}>{children}</em>,
-                                ul: ({ children, ...props }) => <ul className="list-disc list-inside mb-2 sm:mb-3 space-y-1" {...props}>{React.Children.toArray(children)}</ul>,
-                                ol: ({ children, ...props }) => <ol className="list-decimal list-inside mb-2 sm:mb-3 space-y-1" {...props}>{React.Children.toArray(children)}</ol>,
-                                li: ({ children, ...props }) => <li className="text-gray-200 text-sm sm:text-sm" {...props}>{children}</li>,
-                                h1: ({ children, ...props }) => <h1 className="text-sm sm:text-base md:text-lg lg:text-xl font-bold text-green-300 mb-2 sm:mb-3" {...props}>{children}</h1>,
-                                h2: ({ children, ...props }) => <h2 className="text-xs sm:text-sm md:text-base lg:text-lg font-bold text-green-300 mb-2" {...props}>{children}</h2>,
-                                h3: ({ children, ...props }) => <h3 className="text-xs sm:text-sm md:text-base font-bold text-green-300 mb-2" {...props}>{children}</h3>,
-                              }}
-                            >
-                              {message.content}
-                            </ReactMarkdown>
-                          </div>
-                        </div>
+                  )}
+
+                  {/* Chat Section */}
+                  <div className="space-y-6 pt-4">
+                    {messages.length === 0 ? (
+                      <div className="h-64 flex flex-col items-center justify-center opacity-10 border-2 border-dashed border-green-500/20 rounded-3xl mx-12">
+                         <Shield className="h-16 w-16 mb-4" />
+                         <span className="text-xl font-black uppercase tracking-[0.3em]">Ready for Analysis</span>
                       </div>
-                    );
-                  })}
-                  {/* Removed loading indicator - streaming text will show directly */}
-                  <div ref={messagesEndRef} />
-                </div>
-              )}
-            </div>
-            
-            {/* Scroll to bottom button - positioned above mobile input or in corner for desktop */}
-            {showScrollButton && (
-              <button
-                onClick={() => {
-                  userScrolledRef.current = false;
-                  scrollToBottom(true);
-                }}
-                className={`absolute right-4 bg-green-600 hover:bg-green-700 text-white rounded-full p-2 shadow-lg transition-all duration-200 z-10 flex items-center justify-center ${
-                  isMobile ? 'bottom-20' : 'bottom-4'
-                }`}
-                style={{
-                  width: '40px',
-                  height: '40px',
-                  animation: 'fadeIn 0.2s ease-in'
-                }}
-                aria-label="Scroll to bottom"
-              >
-                <ArrowDown className="h-5 w-5" />
-              </button>
-            )}
-          </div>
-
-          {/* Connection Status Banner - only show when not connected */}
-          {false && (
-            <div className="mb-3 bg-yellow-900/30 border border-yellow-500/50 rounded-lg p-3 flex items-center gap-3">
-              <div className="flex items-center gap-2">
-                <div className="w-2 h-2 bg-yellow-400 rounded-full animate-pulse"></div>
-                <span className="text-yellow-300 text-sm font-medium">
-                  Connecting to execution server...
-                </span>
-              </div>
-            </div>
-          )}
-
-          {/* Terminal Window for Tool Execution */}
-          {showTerminal && (
-            <div className="mb-3">
-              <TerminalWindow
-                outputs={terminalOutputs}
-                isRunning={isToolExecuting}
-                onClear={() => {
-                  clearOutputs();
-                  setTerminalOutputs([]);
-                }}
-                onCommand={handleDirectCommand}
-                onCancel={cancelExecution}
-                onForceReset={() => {
-                  forceReset();
-                  setTerminalOutputs([]);
-                }}
-                title="🔧 Tool Execution Output"
-              />
-            </div>
-          )}
-
-          {/* Input Area - Improved mobile responsiveness */}
-          {isMobile ? (
-            <div
-              ref={inputBarRef}
-              className="fixed-input-bar fixed bottom-0 left-0 w-full z-30 bg-black/95 safe-area-bottom border-t border-green-500/20"
-              style={{ 
-                boxShadow: '0 -2px 16px 0 #000a',
-                transition: 'bottom 0.2s ease-out'
-              }}
-            >
-              <div className="px-2 pt-2 pb-2 flex items-end gap-2" style={{ touchAction: 'manipulation' }}>
-                {/* Plus button for new chat */}
-                <Button
-                  onClick={startNewChat}
-                  className="bg-gray-700 hover:bg-gray-600 text-white font-semibold px-2 py-2 rounded-full shadow-sm hover:shadow-md transition-all duration-200 flex-shrink-0 min-w-[38px] min-h-[38px]"
-                  style={{ fontSize: '18px', height: '38px' }}
-                  tabIndex={0}
-                  aria-label="New Chat"
-                >
-                  <Plus className="h-5 w-5" />
-                </Button>
-                
-                <div className="flex-1">
-                  <Textarea
-                    ref={textareaRef}
-                    placeholder="Ask me about hacking"
-                    value={input}
-                    onChange={(e) => {
-                      setInput(e.target.value);
-                    }}
-                    onFocus={handleInputFocus}
-                    onBlur={handleInputBlur}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter' && !e.shiftKey) {
-                        e.preventDefault();
-                        sendMessage();
-                      }
-                    }}
-                    className="chat-input bg-black/80 border-green-500/40 text-green-100 placeholder-gray-400 resize-none text-[15px] leading-tight focus:border-green-400 focus:ring-0 focus:outline-none focus-visible:outline-none focus-visible:ring-0 focus-visible:border-green-400 rounded-full transition-all duration-200 scrollbar-hide px-4 py-2 min-h-[38px] max-h-[80px] [&:focus]:outline-none [&:focus]:ring-0 [&:focus]:shadow-none"
-                    rows={1}
-                    style={{ 
-                      minHeight: '38px', 
-                      maxHeight: '80px', 
-                      fontSize: '15px',
-                      outline: 'none',
-                      boxShadow: 'none'
-                    }}
-                  />
-                </div>
-                <Button
-                  onClick={isStreaming ? stopStreaming : () => sendMessage()}
-                  disabled={!isStreaming && (!input.trim() || !canSendMessage)}
-                  className={`${
-                    isStreaming 
-                      ? 'bg-orange-600 hover:bg-orange-700 text-white' 
-                      : 'bg-green-600 hover:bg-green-700 text-black'
-                  } font-semibold px-2 py-2 rounded-full shadow-sm hover:shadow-md transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex-shrink-0 min-w-[38px] min-h-[38px]`}
-                  style={{ fontSize: '18px', height: '38px' }}
-                  tabIndex={0}
-                  aria-label={isStreaming ? "Stop Response" : "Send"}
-                >
-                  {isStreaming ? <Square className="h-5 w-5" /> : <Send className="h-5 w-5" />}
-                </Button>
-              </div>
-            </div>
-          ) : (
-            <div className="flex-shrink-0">
-              <div className="bg-gray-900/70 border border-green-500/30 rounded-lg p-2 sm:p-3 backdrop-blur-sm">
-                <div className="flex gap-2 sm:gap-3 items-end">
-                  <div className="flex-1">
-                    <Textarea
-                      ref={textareaRef}
-                      placeholder={isMobile ? mobilePlaceholder : desktopPlaceholder}
-                      value={input}
-                      onChange={(e) => {
-                        setInput(e.target.value);
-                      }}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter' && !e.shiftKey) {
-                          e.preventDefault();
-                          sendMessage();
-                        }
-                      }}
-                      className="chat-input bg-black/50 border-green-500/40 text-green-100 placeholder-gray-400 resize-none text-sm focus:border-green-400 focus:ring-0 focus:outline-none focus-visible:outline-none focus-visible:ring-0 focus-visible:border-green-400 rounded-md transition-all duration-200 scrollbar-hide [&:focus]:outline-none [&:focus]:ring-0 [&:focus]:shadow-none"
-                      rows={1}
-                      style={{ 
-                        minHeight: '44px', 
-                        maxHeight: '120px',
-                        outline: 'none',
-                        boxShadow: 'none'
-                      }}
-                    />
+                    ) : (
+                      messages.map((m) => (
+                        <div key={m.id} className={`flex flex-col ${m.type === 'user' ? 'items-end' : 'items-start'} gap-2 group animate-in fade-in duration-300`}>
+                          <div className="flex items-center gap-2 text-[10px] uppercase font-black tracking-widest opacity-30 px-2 group-hover:opacity-60 transition-opacity">
+                            {m.type === 'assistant' && <div className="w-4 h-0.5 bg-green-500/50" />}
+                            <span>{m.type === 'user' ? 'Operator' : 'HEX Terminal'}</span>
+                            <span>•</span>
+                            <span className="font-mono">
+                              {m.timestamp instanceof Date && !isNaN(m.timestamp.getTime()) 
+                                ? m.timestamp.toLocaleTimeString().split(' ')[0] 
+                                : new Date().toLocaleTimeString().split(' ')[0]}
+                            </span>
+                            {m.type === 'user' && <div className="w-4 h-0.5 bg-green-500/50" />}
+                          </div>
+                          
+                          <div className={`max-w-[85%] rounded-2xl p-4 shadow-xl border ${
+                            m.type === 'user' 
+                              ? 'bg-green-500/5 border-green-500/20 text-green-50 border-r-4 border-r-green-500/40 translate-x-1' 
+                              : 'bg-gray-900/80 border-white/5 text-gray-200 shadow-black/40 backdrop-blur-sm'
+                          }`}>
+                            <div className="prose prose-invert prose-emerald max-w-none text-sm leading-relaxed overflow-hidden">
+                              <ReactMarkdown components={{ pre: CopyablePreBlock }}>{m.content}</ReactMarkdown>
+                            </div>
+                          </div>
+                        </div>
+                      ))
+                    )}
+                    <div ref={messagesEndRef} />
                   </div>
-                  <Button
-                    onClick={isStreaming ? stopStreaming : () => sendMessage()}
-                    disabled={!isStreaming && (!input.trim() || !canSendMessage)}
-                    className={`${
-                      isStreaming 
-                        ? 'bg-orange-600 hover:bg-orange-700 text-white' 
-                        : 'bg-green-600 hover:bg-green-700 text-black'
-                    } font-semibold px-2 sm:px-3 md:px-4 py-2 h-10 sm:h-11 rounded-md shadow-sm hover:shadow-md transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex-shrink-0`}
-                    aria-label={isStreaming ? "Stop Response" : "Send"}
-                  >
-                    {isStreaming ? <Square className="h-4 w-4" /> : <Send className="h-4 w-4" />}
-                  </Button>
+               </div>
+            </div>
+
+            {/* Input Controller */}
+            <div className="absolute bottom-0 left-0 right-0 p-6 bg-gradient-to-t from-[#020617] via-[#020617]/90 to-transparent z-40">
+              <div className="max-w-4xl mx-auto relative group">
+                <div className="absolute inset-x-0 bottom-full mb-2 flex justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                   <div className="px-3 py-1 bg-green-500/10 border border-green-500/20 rounded-full text-[9px] uppercase font-bold tracking-widest text-green-400">
+                     Shift + Enter for new line
+                   </div>
                 </div>
+                
+                <Textarea 
+                  ref={textareaRef} 
+                  value={input} 
+                  onChange={(e) => setInput(e.target.value)} 
+                  onFocus={handleInputFocus} 
+                  onKeyDown={(e) => {if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();sendMessage();}}} 
+                  placeholder="Ask about penetration testing, request payloads, or security analysis..." 
+                  className="bg-gray-900/60 border-green-500/30 text-green-400 text-sm py-4 pl-6 pr-16 min-h-[64px] rounded-2xl focus:border-green-500/60 focus:ring-0 shadow-[0_0_15px_rgba(34,197,94,0.05)] transition-all scrollbar-none placeholder:text-gray-600" 
+                />
+                
+                <Button 
+                  onClick={() => sendMessage()} 
+                  disabled={isStreaming || !input.trim()} 
+                  className="absolute right-3 bottom-2.5 h-10 w-10 rounded-xl bg-green-600 text-black hover:bg-green-400 disabled:opacity-20 transition-all flex items-center justify-center p-0"
+                >
+                  {isStreaming ? <Square className="h-4 w-4" /> : <Send className="h-4 w-4" />}
+                </Button>
               </div>
             </div>
-          )}
+          </main>
         </div>
       </div>
 
-      {/* Billing Popup */}
-      <BillingPopup
-        isOpen={showBillingPopup}
-        onClose={() => setShowBillingPopup(false)}
-        dailyUsage={dailyUsage}
-      />
-
-
-
-      {/* Mobile Profile Modal */}
-      <Dialog open={showMobileProfile} onOpenChange={setShowMobileProfile}>
-        <DialogContent className="bg-gray-900 border-green-500/30 text-green-400 w-[95vw] max-w-md mx-auto max-h-[85vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle className="text-green-400 flex items-center gap-2">
-              <User className="h-5 w-5" />
-              Profile & Upgrade
-            </DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4">
-            {/* Profile Info */}
-            {profile && (
-              <div className="bg-black/30 rounded-lg p-4 border border-green-500/20">
-                <div className="flex items-center gap-3 mb-3">
-                  {profile.avatar_url && (
-                    <img
-                      src={profile.avatar_url}
-                      alt="Profile"
-                      className="w-10 h-10 rounded-full border border-green-500/30"
-                    />
-                  )}
-                  <div>
-                    <h3 className="text-green-300 font-medium text-sm">
-                      {profile.full_name || profile.github_username || 'User'}
-                    </h3>
-                    <p className="text-gray-400 text-xs">
-                      {profile.email}
-                    </p>
-                  </div>
-                </div>
-
-                {/* Subscription Status */}
-                <div className="flex items-center justify-between">
-                  <span className="text-gray-300 text-sm">Plan:</span>
-                  <Badge
-                    variant="outline"
-                    className={`text-xs ${
-                      profile.subscription_status === 'premium'
-                        ? 'border-yellow-500/30 text-yellow-300 bg-yellow-900/20'
-                        : 'border-gray-500/30 text-gray-300 bg-gray-900/20'
-                    }`}
-                  >
-                    {profile.subscription_status === 'premium' ? 'Premium' : 'Free'}
-                  </Badge>
-                </div>
-              </div>
-            )}
-
-            {/* Daily Usage */}
-            <div className="bg-black/30 rounded-lg p-4 border border-green-500/20">
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-gray-300 text-sm">Daily Messages:</span>
-                <span className="text-green-300 text-sm font-medium">
-                  {dailyUsage?.messageCount || 0} / {profile?.subscription_status === 'premium' ? '∞' : '3'}
-                </span>
-              </div>
-              <div className="w-full bg-gray-700 rounded-full h-2">
-                <div
-                  className={`h-2 rounded-full transition-all duration-300 ${
-                    profile?.subscription_status === 'premium'
-                      ? 'bg-green-400 w-full'
-                      : `bg-green-400`
-                  }`}
-                  style={{
-                    width: profile?.subscription_status === 'premium'
-                      ? '100%'
-                      : `${Math.min(((dailyUsage?.messageCount || 0) / 3) * 100, 100)}%`
-                  }}
-                ></div>
-              </div>
-            </div>
-
-            {/* Upgrade Button */}
-            {profile?.subscription_status !== 'premium' && (
-              <Button
-                onClick={() => {
-                  setShowMobileProfile(false);
-                  navigate('/billing');
-                }}
-                className="w-full bg-yellow-600 hover:bg-yellow-700 text-black font-medium py-3 rounded-lg transition-colors"
-              >
-                Upgrade to Premium - $3/month
-              </Button>
-            )}
-
-            {/* Action Buttons */}
-            <div className="flex gap-2">
-              {/* Sign Out Button */}
-              <Button
-                onClick={() => {
-                  signOut();
-                  setShowMobileProfile(false);
-                }}
-                variant="outline"
-                className="flex-1 border-red-500/30 text-red-400 hover:bg-red-500/10 flex items-center justify-center gap-2"
-              >
-                <LogOut className="h-4 w-4" />
-                Sign Out
-              </Button>
-
-              {/* Close Button */}
-              <Button
-                onClick={() => setShowMobileProfile(false)}
-                variant="outline"
-                className="flex-1 border-green-500/30 text-green-400 hover:bg-green-500/10"
-              >
-                Close
-              </Button>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
-{/* Report Generation Modal */}
-      <Dialog 
-        open={showReportModal}
-        onOpenChange={(open) => {
-          if (!open) {
-            isReportOpenRef.current = false;
-            setShowReportModal(false);
-            setMessages(messagesSnapshotRef.current);
-          } else {
-            isReportOpenRef.current = true;
-          }
-        }}
-      >
-        <DialogContent className="bg-gray-900 border-green-500/30 text-green-400 w-[95vw] max-w-4xl mx-auto h-[85vh] flex flex-col overflow-hidden">
-          <DialogHeader>
-            <DialogTitle className="text-green-400 flex items-center justify-between pr-6">
-              <div className="flex items-center gap-2">
-                <FileText className="h-5 w-5" />
-                Executive Security Assessment
-              </div>
-              {!isGeneratingReport && reportContent && (
-                <div className="flex items-center gap-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="border-green-500/30 text-green-400 hover:bg-green-500/10 h-8"
-                    onClick={() => {
-                      navigator.clipboard.writeText(reportContent);
-                      alert("Report copied to clipboard!"); 
-                    }}
-                  >
-                    <CopyIcon className="h-4 w-4 mr-2" />
-                    Copy
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="border-green-500/30 text-green-400 hover:bg-green-500/10 h-8"
-                    onClick={handleDownloadReport}
-                  >
-                    <Download className="h-4 w-4 mr-2" />
-                    Download .md
-                  </Button>
-                </div>
-              )}
-            </DialogTitle>
-          </DialogHeader>
-          
-          <div className="flex-1 overflow-y-auto p-4 sm:p-6 bg-black/60 rounded-md border border-gray-800 shadow-inner mt-2">
-            {isGeneratingReport && !reportContent ? (
-              <div className="flex flex-col items-center justify-center h-full space-y-4">
-                <div className="w-8 h-8 border-4 border-green-500/30 border-t-green-400 rounded-full animate-spin"></div>
-                <p className="text-green-400 animate-pulse font-light">Analyzing session and compiling report...</p>
-              </div>
-            ) : (
-              <div className="prose prose-invert prose-green max-w-none text-sm sm:text-base">
-                <ReactMarkdown>{reportContent}</ReactMarkdown>
-              </div>
-            )}
-          </div>
-        </DialogContent>
-      </Dialog>
-      {/* Final History Modal */}
-      <ScanHistory 
-        open={showHistory} 
-        onOpenChange={setShowHistory} 
-        userId={user?.id}
-      />
+      <ScanHistory open={showHistory} onOpenChange={setShowHistory} userId={user?.id} onSelectScan={loadSavedScan} />
+      <BillingPopup isOpen={showBillingPopup} onClose={() => setShowBillingPopup(false)} dailyUsage={dailyUsage || { messageCount: 0, canSendMessage: true }} />
     </div>
   );
 };

@@ -10,15 +10,17 @@ interface ScanRecord {
   risk_score: number;
   verdict: string;
   created_at: string;
+  full_data: any;
 }
 
 interface ScanHistoryProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   userId: string | undefined;
+  onSelectScan: (scan: ScanRecord) => void;
 }
 
-export default function ScanHistory({ open, onOpenChange, userId }: ScanHistoryProps) {
+export default function ScanHistory({ open, onOpenChange, userId, onSelectScan }: ScanHistoryProps) {
   const [scans, setScans] = useState<ScanRecord[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -36,10 +38,9 @@ export default function ScanHistory({ open, onOpenChange, userId }: ScanHistoryP
         .select('*')
         .eq('user_id', userId)
         .order('created_at', { ascending: false })
-        .limit(50);
+        .limit(20); // Per user request: 20 scans limit
         
       if (error) {
-        // Table might not exist yet, that's fine
         console.warn('Could not load history:', error);
       } else if (data) {
         setScans(data);
@@ -74,13 +75,18 @@ export default function ScanHistory({ open, onOpenChange, userId }: ScanHistoryP
     }
   };
 
+  const handleScanClick = (scan: ScanRecord) => {
+    onSelectScan(scan);
+    onOpenChange(false);
+  };
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="bg-gray-900 border-green-500/30 text-green-400 max-w-4xl h-[80vh] flex flex-col">
         <DialogHeader className="flex flex-row items-center justify-between">
           <DialogTitle className="flex items-center gap-2">
             <Clock className="h-5 w-5" />
-            Threat Intelligence History
+            Threat Intelligence History (Last 20)
           </DialogTitle>
           {scans.length > 0 && (
             <Button 
@@ -116,8 +122,12 @@ export default function ScanHistory({ open, onOpenChange, userId }: ScanHistoryP
               </thead>
               <tbody>
                 {scans.map((scan) => (
-                  <tr key={scan.id} className="border-b border-gray-800 hover:bg-gray-800/30 transition-colors">
-                    <td className="px-6 py-4 font-mono text-gray-300">{scan.target}</td>
+                  <tr 
+                    key={scan.id} 
+                    onClick={() => handleScanClick(scan)}
+                    className="border-b border-gray-800 hover:bg-green-500/10 transition-colors cursor-pointer group"
+                  >
+                    <td className="px-6 py-4 font-mono text-gray-300 group-hover:text-green-400 transition-colors">{scan.target}</td>
                     <td className="px-6 py-4">
                       <span className={getScoreColor(scan.risk_score)}>
                         {scan.risk_score}/100
@@ -126,10 +136,10 @@ export default function ScanHistory({ open, onOpenChange, userId }: ScanHistoryP
                     <td className="px-6 py-4">
                       <div className="flex items-center gap-2">
                         {getVerdictIcon(scan.verdict)}
-                        <span className="text-gray-300">{scan.verdict}</span>
+                        <span className="text-gray-300 group-hover:text-white">{scan.verdict}</span>
                       </div>
                     </td>
-                    <td className="px-6 py-4 text-gray-500 whitespace-nowrap">
+                    <td className="px-6 py-4 text-gray-500 whitespace-nowrap group-hover:text-gray-300">
                       {new Date(scan.created_at).toLocaleString()}
                     </td>
                   </tr>

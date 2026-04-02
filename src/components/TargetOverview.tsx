@@ -105,7 +105,9 @@ const TargetOverview: React.FC<TargetOverviewProps> = ({ target, geoData, shodan
   let ports = 'N/A';
   let vulns = 'N/A';
   let whoisInfo = 'N/A';
-  let isDomain = !/^\d{1,3}(\.\d{1,3}){3}$/.test(target);
+  const isIP = /^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(target);
+  // Allow domains too - IP-API handles them perfectly!
+  let isDomain = !isIP;
 
   // Extract infrastructure/domain info
   if (shodanData && typeof shodanData === 'string') {
@@ -133,9 +135,15 @@ const TargetOverview: React.FC<TargetOverviewProps> = ({ target, geoData, shodan
 
   return (
     <>
-    <div className="w-full bg-black/60 border border-green-500/20 rounded-lg p-4 mb-4 flex flex-col md:flex-row gap-4">
+    <div className="w-full bg-black/60 border border-emerald-500/20 rounded-lg p-4 mb-4 flex flex-col md:flex-row gap-4 min-h-[420px] lg:min-h-[320px] transition-all duration-300 relative overflow-hidden group shadow-[0_0_20px_rgba(16,185,129,0.05)]">
+       {/* Premium Emerald Accents */}
+       <div className="absolute top-0 left-0 w-16 h-[1px] bg-emerald-500/50" />
+       <div className="absolute top-0 left-0 w-[1px] h-12 bg-emerald-500/50" />
+       <div className="absolute bottom-0 right-0 w-16 h-[1px] bg-emerald-500/30" />
+       <div className="absolute bottom-0 right-0 w-[1px] h-12 bg-emerald-500/30" />
+      
       {/* Left side: Stats & Gauges */}
-      <div className="flex-1 space-y-4">
+      <div className="flex-[0.85] space-y-4">
         <div className="flex items-center justify-between flex-wrap gap-2">
           <h3 className="text-xl font-bold text-white">Target Intelligence: {target}</h3>
         
@@ -178,7 +186,7 @@ const TargetOverview: React.FC<TargetOverviewProps> = ({ target, geoData, shodan
           </div>
         </div>
         
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-[1fr_2fr] gap-4">
           <div className="flex flex-col items-center justify-center">
             <div className={`w-32 h-32 rounded-full border-4 ${isLoading ? 'animate-pulse border-blue-500/50' : 'border-gray-800'} flex items-center justify-center relative overflow-hidden`}>
               <div className={`absolute inset-0 ${riskBg} opacity-20`} style={{ height: `${riskScore}%`, top: 'auto' }} />
@@ -191,28 +199,30 @@ const TargetOverview: React.FC<TargetOverviewProps> = ({ target, geoData, shodan
             </span>
           </div>
           
-          <div className="grid grid-cols-2 gap-3 flex-1 h-32">
-            <div className="bg-black/50 p-3 rounded border border-gray-800 flex flex-col justify-center">
-              <span className="text-gray-400 text-xs uppercase tracking-wider mb-2">Target Info</span>
+          <div className="grid grid-cols-[1.8fr_2.2fr] gap-3 flex-1 h-60">
+            <div className="bg-black/90 px-3 py-5 rounded border border-emerald-500/40 flex flex-col justify-center min-h-[220px] shadow-[inset_0_0_20px_rgba(16,185,129,0.1)] relative overflow-hidden group/card text-left">
+              <div className="absolute inset-0 bg-gradient-to-br from-emerald-500/5 to-transparent opacity-0 group-hover/card:opacity-100 transition-opacity duration-700" />
+              <span className="text-gray-400 text-[10px] uppercase tracking-widest mb-3 font-black">Target Info</span>
               <div className="text-sm">
-                <span className="text-gray-500">Host:</span> <span className="text-white truncate block">{target}</span>
+                <span className="text-gray-500 font-bold uppercase text-[9px]">Host:</span> <span className="text-white break-words block font-mono bg-white/5 p-1 rounded mt-1 border border-white/5 text-[13px]">{target}</span>
               </div>
-              <div className="text-sm mt-1">
-                <span className="text-gray-500">Status:</span> <span className={isLoading ? "text-blue-400 animate-pulse" : "text-green-400"}>{isLoading ? "Fetching Intel..." : "Active"}</span>
+              <div className="text-sm mt-3">
+                <span className="text-gray-500 font-bold uppercase text-[9px]">Status:</span> <span className={isLoading ? "text-blue-400 animate-pulse" : "text-green-400 flex items-center gap-2 text-[11px]"}>{isLoading ? "Fetching Intel..." : <><div className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse shadow-[0_0_8px_#22c55e]" /> ACTIVE</>}</span>
               </div>
             </div>
-            <div className="bg-black/50 p-3 rounded border border-gray-800 flex flex-col justify-center">
-              <span className="text-gray-400 text-xs uppercase tracking-wider mb-2">
+            <div className="bg-black/90 px-3 py-5 rounded border border-emerald-500/40 flex flex-col justify-center min-h-[220px] shadow-[inset_0_0_20px_rgba(16,185,129,0.1)] relative overflow-hidden group/analytics text-left">
+              <div className="absolute inset-0 bg-gradient-to-bl from-emerald-500/5 to-transparent opacity-0 group-hover/analytics:opacity-100 transition-opacity duration-700" />
+              <span className="text-gray-400 text-xs uppercase tracking-widest mb-3 font-black">
                 {isDomain ? 'Domain Analytics' : 'Attack Surface'}
               </span>
               <div className="text-sm">
-                <span className="text-gray-500">{isDomain ? 'Registrar:' : 'Ports:'}</span>{' '}
-                <span className="text-blue-400 break-all">{isDomain ? whoisInfo : ports}</span>
+                <span className="text-gray-500 font-bold uppercase text-[10px]">{isDomain ? 'Registrar:' : 'Ports:'}</span>{' '}
+                <div className="text-blue-400 break-all font-mono mt-1 bg-blue-500/5 p-2 rounded border border-blue-500/10 min-h-[60px]">{isDomain ? whoisInfo : ports}</div>
               </div>
-              <div className="text-sm mt-1">
-                <span className="text-gray-500">{isDomain ? 'Threats:' : 'CVEs:'}</span>{' '}
-                <span className={riskScore > 30 ? 'text-red-400 font-bold' : 'text-orange-400'}>
-                  {riskScore > 0 ? `${riskScore}% Intensity` : 'Scan Complete'}
+              <div className="text-sm mt-3">
+                <span className="text-gray-500 font-bold uppercase text-[10px]">{isDomain ? 'Threats:' : 'CVEs:'}</span>{' '}
+                <span className={riskScore > 30 ? 'text-red-400 font-black' : 'text-orange-400 font-black'}>
+                  {riskScore > 0 ? `${riskScore}% CRITICAL INTENSITY` : 'SCAN VERIFIED CLEAN'}
                 </span>
               </div>
             </div>
