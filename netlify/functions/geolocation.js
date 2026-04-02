@@ -4,15 +4,8 @@ export async function handler(event) {
     return { statusCode: 400, body: JSON.stringify({ error: 'No target provided' }) };
   }
 
-  // Validate that target looks like an IP address
-  const isIP = /^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(target);
-  if (!isIP) {
-    return {
-      statusCode: 400,
-      headers: { 'Access-Control-Allow-Origin': '*' },
-      body: JSON.stringify({ status: 'fail', message: 'Only IP addresses are supported' })
-    };
-  }
+  // Allow both IPs and domains to be geolocated
+  // ip-api.com handles both correctly
 
   try {
     const response = await fetch(

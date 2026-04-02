@@ -173,15 +173,7 @@ export async function queryVirusTotal(target: string): Promise<{ formatted: stri
       ['dga', 'phishing', 'malware', 'botnet', 'c2', 'apt', 'nxdomain', 'hosting'].some(keyword => tag.toLowerCase().includes(keyword))
     );
 
-    const formatted = `[VirusTotal Scan Result]
-Reputation Score: ${reputation}
-Malicious Detections: ${stats?.malicious || 0}
-Suspicious Detections: ${stats?.suspicious || 0}
-Harmless Votes: ${stats?.harmless || 0}
-Undetected: ${stats?.undetected || 0}
-Tags: ${tags.join(', ') || 'None'}
-Threat Intelligence: ${threatActors.length > 0 ? threatActors.join(', ') : 'No specific actors identified'}
-Verdict: ${stats?.malicious > 0 ? '❌ MALICIOUS' : stats?.suspicious > 0 ? '⚠️ SUSPICIOUS' : '✅ CLEAN'}`;
+    const formatted = `[INTEL] REP: ${reputation} | DETECTIONS: ${stats?.malicious || 0} MALICIOUS / ${stats?.suspicious || 0} SUSPICIOUS | VERDICT: ${stats?.malicious > 0 ? '❌ MALICIOUS' : stats?.suspicious > 0 ? '⚠️ SUSPICIOUS' : '✅ CLEAN'}`;
 
     return { 
       formatted, 
@@ -244,7 +236,7 @@ export async function queryShodan(target: string): Promise<{ formatted: string, 
       if (!response.ok) return { formatted: `SHODAN: No data available for ${target}. Status: ${response.status}`, raw: null };
       data = await response.json();
     } else {
-      const response = await fetch(`/.netlify/functions/shodan?ip=${target}`);
+      const response = await fetch(`/.netlify/functions/shodan?target=${target}`);
       if (!response.ok) return { formatted: `SHODAN: Remote proxy error ${response.status}.`, raw: null };
       data = await response.json();
     }
@@ -292,7 +284,7 @@ export async function queryWhois(target: string): Promise<{ formatted: string, r
       if (regEvent) createdDate = new Date(regEvent.eventDate).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
     }
     
-    const formatted = `WHOIS DATA FOR ${target}:\n- Registrar: ${registrar}\n- Created: ${createdDate}\n\n[RDAP RAW]: ${JSON.stringify(data).substring(0, 500)}`;
+    const formatted = `WHOIS DATA FOR ${target}:\n- Registrar: ${registrar}\n- Created: ${createdDate}`;
     return { formatted, raw: data };
   } catch (error: any) {
     return { formatted: `WHOIS: Could not retrieve registration data.`, raw: null };
@@ -309,59 +301,65 @@ export async function querySubdomains(target: string): Promise<{ formatted: stri
 
     console.log(`📡 Launching Parallel Deep Scan for: ${target}`);
     
-    const apiKey = import.meta.env.VITE_VIRUSTOTAL_API_KEY;
-    if (!apiKey) throw new Error('VirusTotal API key is missing');
-
+    const isLocalhost = window.location.hostname === 'localhost';
     const subdomainsSet = new Set<string>();
 
-    try {
-      // 1. First, we need the cursor for page 2, so we always do page 1 first
-      const vtUrl = `https://www.virustotal.com/api/v3/domains/${target}/subdomains?limit=40`;
-      const response = await fetch(vtUrl, { headers: { 'x-apikey': apiKey } });
+    if (isLocalhost) {
+      const apiKey = import.meta.env.VITE_VIRUSTOTAL_API_KEY;
+      if (!apiKey) throw new Error('VirusTotal API key is missing');
       
-      if (response.ok) {
-        const data = await response.json();
-        if (data.data && Array.isArray(data.data)) {
-          data.data.forEach((item: any) => { if (item.id) subdomainsSet.add(item.id.toLowerCase()); });
-          
-          const nextCursor = data.meta?.cursor;
-          
-          // Now launch Page 2 and HackerTarget in parallel for speed boost
-          const [nextRes, htRes] = await Promise.allSettled([
-            nextCursor 
-              ? fetch(`https://www.virustotal.com/api/v3/domains/${target}/subdomains?limit=40&cursor=${nextCursor}`, { headers: { 'x-apikey': apiKey } })
-              : Promise.resolve(null),
-            fetch(`https://api.hackertarget.com/hostsearch/?q=${target}`)
-          ]);
+      try {
+        const vtUrl = `https://www.virustotal.com/api/v3/domains/${target}/subdomains?limit=40`;
+        const response = await fetch(vtUrl, { headers: { 'x-apikey': apiKey } });
+        
+        if (response.ok) {
+          const data = await response.json();
+          if (data.data && Array.isArray(data.data)) {
+            data.data.forEach((item: any) => { if (item.id) subdomainsSet.add(item.id.toLowerCase()); });
+            const nextCursor = data.meta?.cursor;
+            const [nextRes, htRes] = await Promise.allSettled([
+              nextCursor 
+                ? fetch(`https://www.virustotal.com/api/v3/domains/${target}/subdomains?limit=40&cursor=${nextCursor}`, { headers: { 'x-apikey': apiKey } })
+                : Promise.resolve(null),
+              fetch(`https://api.hackertarget.com/hostsearch/?q=${target}`)
+            ]);
 
-          // Handle Page 2 results
-          if (nextRes.status === 'fulfilled' && nextRes.value && nextRes.value.ok) {
-            const nextData = await nextRes.value.json();
-            if (nextData.data && Array.isArray(nextData.data)) {
-              nextData.data.forEach((item: any) => { if (item.id) subdomainsSet.add(item.id.toLowerCase()); });
+            if (nextRes.status === 'fulfilled' && nextRes.value && nextRes.value.ok) {
+              const nextData = await nextRes.value.json();
+              if (nextData.data && Array.isArray(nextData.data)) {
+                nextData.data.forEach((item: any) => { if (item.id) subdomainsSet.add(item.id.toLowerCase()); });
+              }
             }
-          }
 
-          // Handle HackerTarget results
-          if (htRes.status === 'fulfilled' && htRes.value && htRes.value.ok) {
-            const text = await htRes.value.text();
-            if (!text.includes('API count exceeded')) {
-              text.split('\n').forEach(line => {
-                const name = line.split(',')[0].trim().toLowerCase();
-                if (name && name.endsWith(target) && name !== target) subdomainsSet.add(name);
-              });
+            if (htRes.status === 'fulfilled' && htRes.value && htRes.value.ok) {
+              const text = await htRes.value.text();
+              if (!text.includes('API count exceeded')) {
+                text.split('\n').forEach(line => {
+                  const name = line.split(',')[0].trim().toLowerCase();
+                  if (name && name.endsWith(target) && name !== target) subdomainsSet.add(name);
+                });
+              }
             }
           }
         }
+      } catch (e) { console.warn('Local Deep Scan issues:', e); }
+    } else {
+      // Production: Use Netlify Proxy Bridge to bypass CORS
+      const response = await fetch(`/.netlify/functions/subdomains?target=${encodeURIComponent(target)}`);
+      if (response.ok) {
+        const data = await response.json();
+        if (data.subdomains) {
+          data.subdomains.forEach((s: string) => subdomainsSet.add(s));
+        }
+      } else {
+        throw new Error(`Subdomains Proxy Error: ${response.status}`);
       }
-    } catch (e) {
-      console.warn('Deep Scan parallelization had issues:', e);
     }
 
     const subdomains = Array.from(subdomainsSet).sort();
     if (subdomains.length > 0) {
       return { 
-        formatted: `SUBDOMAINS FOR ${target}:\nFound ${subdomains.length} unique subdomains.\n${subdomains.slice(0, 50).join(', ')}${subdomains.length > 50 ? '... (truncated)' : ''}`, 
+        formatted: `SUBDOMAINS FOR ${target}:\nFound ${subdomains.length} unique nodes.\nSample: ${subdomains.slice(0, 30).join(', ')}${subdomains.length > 30 ? '... (truncated)' : ''}`, 
         raw: subdomains 
       };
     }
@@ -376,15 +374,15 @@ export async function querySubdomains(target: string): Promise<{ formatted: stri
 
 export function calculateRiskScore(vtData: string, geoData: string, shodanData: string = ""): number {
   let score = 0;
-  const maliciousMatch = vtData.match(/Malicious Detections: (\d+)/);
+  const maliciousMatch = vtData.match(/(?:Malicious Detections:|DETECTIONS:) (\d+)/i);
   const malicious = maliciousMatch ? parseInt(maliciousMatch[1]) : 0;
   score += Math.min(malicious * 4, 40);
 
-  const suspiciousMatch = vtData.match(/Suspicious Detections: (\d+)/);
+  const suspiciousMatch = vtData.match(/(?:Suspicious Detections:|SUSPICIOUS:) (\d+)/i);
   const suspicious = suspiciousMatch ? parseInt(suspiciousMatch[1]) : 0;
   score += Math.min(suspicious * 2, 20);
 
-  const reputationMatch = vtData.match(/Reputation Score: (-?\d+)/);
+  const reputationMatch = vtData.match(/(?:Reputation Score:|Reputation:|REP:) (-?\d+)/i);
   const reputation = reputationMatch ? parseInt(reputationMatch[1]) : 0;
   if (reputation < 0) score += 20;
   else if (reputation < 10) score += 10;

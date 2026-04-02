@@ -409,27 +409,35 @@ const Index = () => {
       setCurrentTarget(target);
       setIsScanning(true);
       const isIP = /^\d+\.\d+\.\d+\.\d+$/.test(target);
-      const [vt, geo, whois, shodan, subs] = await Promise.all([
+      
+      // Phase 1: Primary Intel & Resolution
+      const [vt, geo, whois, subs] = await Promise.all([
         queryVirusTotal(target),
         queryGeolocation(target),
         !isIP ? queryWhois(target) : Promise.resolve({ formatted: 'N/A', raw: null }),
-        isIP ? queryShodan(target) : Promise.resolve({ formatted: 'N/A', raw: null }),
         !isIP ? querySubdomains(target) : Promise.resolve({ formatted: 'N/A', raw: [] })
       ]);
+
+      // Phase 2: Unmasking Attack Surface (Resolve Domain to IP for Shodan)
+      const resolvedIP = isIP ? target : (geo.raw?.query || null);
+      const shodan = (resolvedIP && resolvedIP !== 'localhost') 
+        ? await queryShodan(resolvedIP) 
+        : { formatted: 'N/A', raw: null };
 
       const raw: RawApiData = { virustotal: vt.raw, shodan: shodan.raw, whois: whois.raw, geolocation: geo.raw };
       setRawApiData(raw);
       setSubdomains(subs.raw || []);
-      const score = calculateRiskScore(vt.formatted, geo.formatted, !isIP ? whois.formatted : shodan.formatted);
+      
+      const infrastructureData = !isIP ? (whois.formatted + "\n" + shodan.formatted) : shodan.formatted;
+      const score = calculateRiskScore(vt.formatted, geo.formatted, infrastructureData);
       setRiskScore(score);
       setGeoData(geo.formatted);
-      const shodanStr = !isIP ? whois.formatted : shodan.formatted;
-      setShodanData(shodanStr);
+      setShodanData(infrastructureData);
       setIsScanning(false);
       
       // Cache results for history archival
-      scanResults = { target, score, geo: geo.formatted, shodan: shodanStr, subs: subs.raw, raw };
-      realData = `\n\n[SYSTEM DATA ATTACHMENT]:\n${vt.formatted}\n${geo.formatted}\n${whois.formatted}\n${shodan.formatted}\n${subs.formatted}`;
+      scanResults = { target, score, geo: geo.formatted, shodan: infrastructureData, subs: subs.raw, raw };
+      realData = `\n\n[SYSTEM DATA ATTACHMENT]:\nCUSTOM RISK SCORE: ${score}%\n${vt.formatted}\n${geo.formatted}\n${whois.formatted}\n${shodan.formatted}\n${subs.formatted}`;
     }
 
     if (!isRetry && !autoTrigger) {
