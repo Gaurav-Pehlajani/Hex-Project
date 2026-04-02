@@ -13,12 +13,13 @@ import { ApiError } from '@/lib/api-error-handler';
 import { useAuth } from '@/hooks/use-auth';
 import { AuthButton, AuthCard } from '@/components/AuthButton';
 import BillingPopup from '@/components/BillingPopup';
-import PresetsCard from '@/components/PresetsCard';
+import ThreatIntelFeed from '@/components/ThreatIntelFeed';
 import TerminalWindow, { type TerminalOutput } from '@/components/TerminalWindow';
 import { useToolExecution } from '@/hooks/use-tool-execution';
 import { professionalSecurityTools } from '@/lib/tools-schema';
 import { MCPClient } from '@/lib/mcp-client';
 import TargetOverview from '@/components/TargetOverview';
+import { type RawApiData } from '@/components/RawDataViewer';
 import ScanHistory from '@/components/ScanHistory';
 import { supabase } from '@/lib/supabase';
 
@@ -148,6 +149,7 @@ const Index = () => {
   const [shodanData, setShodanData] = useState<string | null>(null);
   const [isScanning, setIsScanning] = useState<boolean>(false);
   const [showHistory, setShowHistory] = useState(false);
+  const [rawApiData, setRawApiData] = useState<RawApiData>({});
 
   // Simple localStorage functions
   const saveMessagesToStorage = (messages: Message[]) => {
@@ -331,6 +333,7 @@ const Index = () => {
     setGeoData(null);
     setShodanData(null);
     setRiskScore(0);
+    setRawApiData({});
     
     // Add notification message
     const notificationMessage: Message = {
@@ -373,7 +376,7 @@ const Index = () => {
   const [lastError, setLastError] = useState<ApiError | null>(null);
   const [retryCount, setRetryCount] = useState(0);
   const [showBillingPopup, setShowBillingPopup] = useState(false);
-  const [showPresetsModal, setShowPresetsModal] = useState(false);
+
   const [showMobileProfile, setShowMobileProfile] = useState(false);
   
   // State for managing streaming and abort controller
@@ -695,6 +698,7 @@ const Index = () => {
     setGeoData(null);
     setShodanData(null);
     setRiskScore(0);
+    setRawApiData({});
 
     // Check authentication
     if (!isAuthenticated) {
@@ -765,17 +769,33 @@ const Index = () => {
           }
         }
         
-        const [vtData, geoData, whoisData, shodanData] = await Promise.all([
+        const [vtResult, geoResult, whoisResult, shodanResult] = await Promise.all([
           queryVirusTotal(target),
           queryGeolocation(effectiveTarget),
-          !isIP ? queryWhois(target) : Promise.resolve('WHOIS: Only available for domains.'),
-          isIP ? queryShodan(effectiveTarget) : Promise.resolve('SHODAN: Use WHOIS for domains.')
+          !isIP ? queryWhois(target) : Promise.resolve({ formatted: 'WHOIS: Only available for domains.', raw: null }),
+          isIP ? queryShodan(effectiveTarget) : Promise.resolve({ formatted: 'SHODAN: Use WHOIS for domains.', raw: null })
         ]);
+
+        // Extract formatted strings for AI and dashboard
+        const vtData = vtResult.formatted;
+        const geoData = geoResult.formatted;
+        const whoisData = whoisResult.formatted;
+        const shodanData = shodanResult.formatted;
+
+        // Store raw API data for the Raw Data Viewer
+        const newRawApiData: RawApiData = {};
+        if (vtResult.raw) newRawApiData.virustotal = vtResult.raw;
+        if (shodanResult.raw) newRawApiData.shodan = shodanResult.raw;
+        if (whoisResult.raw) newRawApiData.whois = whoisResult.raw;
+        if (geoResult.raw) newRawApiData.geolocation = geoResult.raw;
+        setRawApiData(newRawApiData);
+
         console.log('✅ ALL API DATA FETCHED');
         console.log('VT:', vtData ? 'YES' : 'NO');
         console.log('GEO:', geoData ? 'YES' : 'NO');
         console.log('WHOIS:', whoisData ? 'YES' : 'NO');
         console.log('SHODAN:', shodanData ? 'YES' : 'NO');
+        console.log('RAW DATA:', Object.keys(newRawApiData).join(', ') || 'NONE');
         
         const calculatedRiskScore = calculateRiskScore(vtData, geoData, shodanData);
         const riskLabel = getRiskLabel(calculatedRiskScore);
@@ -1145,18 +1165,7 @@ const Index = () => {
                 </Button>
               )}
 
-              {/* Mobile Presets Button - Only show when authenticated */}
-              {isAuthenticated && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="lg:hidden border-green-500/30 text-green-400 hover:bg-green-500/10 px-1.5 py-1"
-                  onClick={() => setShowPresetsModal(true)}
-                  title="Quick Presets"
-                >
-                  <Shield className="h-3 w-3" />
-                </Button>
-              )}
+
 
               {/* Authentication - Show sign in on mobile when not authenticated */}
               <div className={isAuthenticated ? "hidden lg:block" : "block"}>
@@ -1185,19 +1194,9 @@ const Index = () => {
           {/* Authentication Card */}
           <AuthCard />
 
-          {/* Presets Card - dynamic height but never exceeds input area */}
+          {/* Global Threat Intel Feed */}
           {isAuthenticated && (
-            <PresetsCard
-              onPresetSelect={(prompt) => {
-                setInput(prompt);
-                // Auto-focus the input after preset selection
-                setTimeout(() => {
-                  if (textareaRef.current) {
-                    textareaRef.current.focus();
-                  }
-                }, 100);
-              }}
-            />
+            <ThreatIntelFeed />
           )}
         </div>
 
@@ -1221,6 +1220,7 @@ const Index = () => {
                   shodanData={shodanData} 
                   riskScore={riskScore} 
                   isLoading={isScanning}
+                  rawApiData={rawApiData}
                 />
               )}
               {messages.length === 0 ? (
@@ -1486,31 +1486,7 @@ const Index = () => {
         dailyUsage={dailyUsage}
       />
 
-      {/* Mobile Presets Modal */}
-      <Dialog open={showPresetsModal} onOpenChange={setShowPresetsModal}>
-        <DialogContent className="bg-gray-900 border-green-500/30 text-green-400 w-[95vw] max-w-md mx-auto max-h-[85vh] overflow-hidden">
-          <DialogHeader>
-            <DialogTitle className="text-green-400 flex items-center gap-2">
-              <Shield className="h-5 w-5" />
-              Quick Presets
-            </DialogTitle>
-          </DialogHeader>
-          <div className="max-h-[70vh] overflow-y-auto">
-            <PresetsCard
-              onPresetSelect={(prompt) => {
-                setInput(prompt);
-                setShowPresetsModal(false);
-                // Auto-focus the input after preset selection
-                setTimeout(() => {
-                  if (textareaRef.current) {
-                    textareaRef.current.focus();
-                  }
-                }, 100);
-              }}
-            />
-          </div>
-        </DialogContent>
-      </Dialog>
+
 
       {/* Mobile Profile Modal */}
       <Dialog open={showMobileProfile} onOpenChange={setShowMobileProfile}>

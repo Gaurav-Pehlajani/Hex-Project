@@ -118,7 +118,7 @@ export function extractTarget(message: string): string | null {
   return null;
 }
 
-export async function queryVirusTotal(target: string): Promise<string> {
+export async function queryVirusTotal(target: string): Promise<{ formatted: string, raw: any }> {
   try {
     const isLocalhost = window.location.hostname === 'localhost';
     const apiKey = import.meta.env.VITE_VIRUSTOTAL_API_KEY;
@@ -132,11 +132,11 @@ export async function queryVirusTotal(target: string): Promise<string> {
       const response = await fetch(endpoint, {
         headers: { 'x-apikey': apiKey }
       });
-      if (!response.ok) return `VirusTotal error: ${response.status}`;
+      if (!response.ok) return { formatted: `VirusTotal error: ${response.status}`, raw: null };
       data = await response.json();
     } else {
       const response = await fetch(`/.netlify/functions/virustotal?target=${encodeURIComponent(target)}`);
-      if (!response.ok) return `VirusTotal error: ${response.status}`;
+      if (!response.ok) return { formatted: `VirusTotal error: ${response.status}`, raw: null };
       data = await response.json();
     }
 
@@ -148,7 +148,7 @@ export async function queryVirusTotal(target: string): Promise<string> {
     const undetected = stats?.undetected || 0;
     const categories = data.data?.attributes?.categories || {};
     const categoryList = Object.values(categories).join(', ') || 'None';
-    return `VIRUSTOTAL RESULTS FOR ${target}:
+    const formatted = `VIRUSTOTAL RESULTS FOR ${target}:
 Reputation Score: ${reputation}
 Malicious Detections: ${malicious}
 Suspicious Detections: ${suspicious}
@@ -156,15 +156,16 @@ Harmless Votes: ${harmless}
 Undetected: ${undetected}
 Categories: ${categoryList}
 Verdict: ${malicious > 5 ? '🚨 MALICIOUS' : malicious > 0 ? '⚠️ SUSPICIOUS' : suspicious > 0 ? '⚠️ SUSPICIOUS' : '✅ CLEAN'}`;
+    return { formatted, raw: data };
   } catch (error) {
-    return `Could not fetch VirusTotal data for ${target}`;
+    return { formatted: `Could not fetch VirusTotal data for ${target}`, raw: null };
   }
 }
 
-export async function queryGeolocation(target: string): Promise<string> {
+export async function queryGeolocation(target: string): Promise<{ formatted: string, raw: any }> {
   try {
     const isIP = /^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(target);
-    if (!isIP) return `Geolocation: Only available for IP addresses, not domains.`;
+    if (!isIP) return { formatted: `Geolocation: Only available for IP addresses, not domains.`, raw: null };
     
     const isLocalhost = window.location.hostname === 'localhost';
     let data;
@@ -177,9 +178,9 @@ export async function queryGeolocation(target: string): Promise<string> {
       data = await response.json();
     }
     
-    if (data.status === 'fail') return `Geolocation: Could not locate ${target}`;
+    if (data.status === 'fail') return { formatted: `Geolocation: Could not locate ${target}`, raw: null };
     
-    return `GEOLOCATION FOR ${target}:
+    const formatted = `GEOLOCATION FOR ${target}:
 Country: ${data.country} (${data.countryCode})
 Region: ${data.regionName}
 City: ${data.city}
@@ -188,49 +189,51 @@ ISP: ${data.isp}
 Organization: ${data.org}
 Hosting Provider: ${data.hosting ? 'Yes - likely a server/datacenter' : 'No - likely an end user'}
 ASN: ${data.as}`;
+    return { formatted, raw: data };
   } catch (error) {
-    return `Geolocation: Could not fetch location data for ${target}`;
+    return { formatted: `Geolocation: Could not fetch location data for ${target}`, raw: null };
   }
 }
 
-export async function queryShodan(target: string): Promise<string> {
+export async function queryShodan(target: string): Promise<{ formatted: string, raw: any }> {
   try {
     const isIP = /^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(target);
-    if (!isIP) return `SHODAN: Shodan lookup is only supported for IP addresses.`;
+    if (!isIP) return { formatted: `SHODAN: Shodan lookup is only supported for IP addresses.`, raw: null };
 
     const isLocalhost = window.location.hostname === 'localhost';
     let data;
 
     if (isLocalhost) {
       const apiKey = import.meta.env.VITE_SHODAN_API_KEY;
-      if (!apiKey) return `SHODAN: API key not configured.`;
+      if (!apiKey) return { formatted: `SHODAN: API key not configured.`, raw: null };
       const response = await fetch(`/shodan-proxy/shodan/host/${target}?key=${apiKey}`);
-      if (!response.ok) return `SHODAN: No data available for ${target}. Status: ${response.status}`;
+      if (!response.ok) return { formatted: `SHODAN: No data available for ${target}. Status: ${response.status}`, raw: null };
       data = await response.json();
     } else {
       const response = await fetch(`/.netlify/functions/shodan?ip=${target}`);
-      if (!response.ok) return `SHODAN: Remote proxy error ${response.status}.`;
+      if (!response.ok) return { formatted: `SHODAN: Remote proxy error ${response.status}.`, raw: null };
       data = await response.json();
     }
     
-    if (data.error) return `SHODAN: ${data.error}`;
+    if (data.error) return { formatted: `SHODAN: ${data.error}`, raw: null };
     
     const ports = (data.ports || []).join(', ');
     const vulns = (data.vulns || []).join(', ');
     
-    return `SHODAN DATA FOR ${target}:\n- Open Ports: ${ports || 'None detected'}\n- Known Vulnerabilities (CVEs): ${vulns || 'None detected'}`;
+    const formatted = `SHODAN DATA FOR ${target}:\n- Open Ports: ${ports || 'None detected'}\n- Known Vulnerabilities (CVEs): ${vulns || 'None detected'}`;
+    return { formatted, raw: data };
   } catch (error: any) {
-    return `SHODAN: Could not retrieve data.`;
+    return { formatted: `SHODAN: Could not retrieve data.`, raw: null };
   }
 }
 
-export async function queryWhois(target: string): Promise<string> {
+export async function queryWhois(target: string): Promise<{ formatted: string, raw: any }> {
   try {
     const isLocalhost = window.location.hostname === 'localhost';
     const proxyUrl = isLocalhost ? `/whois-proxy/domain/${target}` : `https://rdap.org/domain/${target}`;
     
     const response = await fetch(proxyUrl);
-    if (!response.ok) return `WHOIS: No registration data available for ${target}. Status: ${response.status}`;
+    if (!response.ok) return { formatted: `WHOIS: No registration data available for ${target}. Status: ${response.status}`, raw: null };
     
     const data = await response.json();
     let registrar = 'Unknown';
@@ -252,12 +255,13 @@ export async function queryWhois(target: string): Promise<string> {
     
     if (data.events && data.events.length > 0) {
       const regEvent = data.events.find((e: any) => e.eventAction === 'registration' || e.eventAction === 'last changed');
-      if (regEvent) createdDate = new Date(regEvent.eventDate).toLocaleDateString();
+      if (regEvent) createdDate = new Date(regEvent.eventDate).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
     }
     
-    return `WHOIS DATA FOR ${target}:\n- Registrar: ${registrar}\n- Created: ${createdDate}\n\n[RDAP RAW]: ${JSON.stringify(data).substring(0, 500)}`;
+    const formatted = `WHOIS DATA FOR ${target}:\n- Registrar: ${registrar}\n- Created: ${createdDate}\n\n[RDAP RAW]: ${JSON.stringify(data).substring(0, 500)}`;
+    return { formatted, raw: data };
   } catch (error: any) {
-    return `WHOIS: Could not retrieve registration data.`;
+    return { formatted: `WHOIS: Could not retrieve registration data.`, raw: null };
   }
 }
 

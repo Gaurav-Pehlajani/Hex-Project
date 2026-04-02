@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import * as L from 'leaflet';
+import RawDataViewer, { type RawApiData } from './RawDataViewer';
 
 interface TargetOverviewProps {
   target: string;
@@ -9,6 +10,7 @@ interface TargetOverviewProps {
   shodanData: string | null;
   riskScore: number;
   isLoading?: boolean;
+  rawApiData?: RawApiData;
 }
 
 // Internal component for the Map to isolate potential Leaflet crashes
@@ -77,7 +79,8 @@ class MapErrorBoundary extends React.Component<{children: React.ReactNode}, {has
   }
 }
 
-export default function TargetOverview({ target, geoData, shodanData, riskScore, isLoading }: TargetOverviewProps) {
+export default function TargetOverview({ target, geoData, shodanData, riskScore, isLoading, rawApiData }: TargetOverviewProps) {
+  const [showRawData, setShowRawData] = useState(false);
   // Extract coordinates with a more flexible regex (supports integers and decimals)
   let lat = 0, lon = 0;
   let hasCoords = false;
@@ -125,10 +128,26 @@ export default function TargetOverview({ target, geoData, shodanData, riskScore,
   const riskBg = riskScore >= 70 ? 'bg-red-500' : riskScore >= 40 ? 'bg-orange-500' : riskScore >= 20 ? 'bg-yellow-500' : 'bg-green-500';
 
   return (
+    <>
     <div className="w-full bg-black/60 border border-green-500/20 rounded-lg p-4 mb-4 flex flex-col md:flex-row gap-4">
       {/* Left side: Stats & Gauges */}
       <div className="flex-1 space-y-4">
-        <h3 className="text-xl font-bold text-white mb-2">Target Intelligence: {target}</h3>
+        <div className="flex items-center justify-between flex-wrap gap-2">
+          <h3 className="text-xl font-bold text-white">Target Intelligence: {target}</h3>
+        
+          {/* Raw Data Button */}
+          {rawApiData && (Object.values(rawApiData).some(v => v !== null && v !== undefined)) && (
+            <button
+              onClick={() => setShowRawData(true)}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all duration-300 border border-cyan-500/30 bg-cyan-500/10 text-cyan-300 hover:bg-cyan-500/20 hover:border-cyan-500/50 hover:shadow-lg hover:shadow-cyan-900/20 group"
+              title="View raw API responses"
+            >
+              <span className="text-sm">📊</span>
+              <span className="hidden sm:inline">Raw Data</span>
+              <div className="w-1.5 h-1.5 bg-cyan-400 rounded-full animate-pulse group-hover:animate-none" />
+            </button>
+          )}
+        </div>
         
         <div className="grid grid-cols-2 gap-4">
           <div className="flex flex-col items-center justify-center">
@@ -185,5 +204,16 @@ export default function TargetOverview({ target, geoData, shodanData, riskScore,
         )}
       </div>
     </div>
+
+    {/* Raw Data Viewer Modal */}
+    {rawApiData && (
+      <RawDataViewer
+        isOpen={showRawData}
+        onClose={() => setShowRawData(false)}
+        data={rawApiData}
+        target={target}
+      />
+    )}
+  </>
   );
 }
