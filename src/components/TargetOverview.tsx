@@ -3,6 +3,7 @@ import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import * as L from 'leaflet';
 import RawDataViewer, { type RawApiData } from './RawDataViewer';
+import SubdomainsViewer from './SubdomainsViewer';
 
 interface TargetOverviewProps {
   target: string;
@@ -11,6 +12,7 @@ interface TargetOverviewProps {
   riskScore: number;
   isLoading?: boolean;
   rawApiData?: RawApiData;
+  subdomains?: string[];
 }
 
 // Internal component for the Map to isolate potential Leaflet crashes
@@ -79,8 +81,9 @@ class MapErrorBoundary extends React.Component<{children: React.ReactNode}, {has
   }
 }
 
-export default function TargetOverview({ target, geoData, shodanData, riskScore, isLoading, rawApiData }: TargetOverviewProps) {
+const TargetOverview: React.FC<TargetOverviewProps> = ({ target, geoData, shodanData, riskScore, isLoading, rawApiData, subdomains }) => {
   const [showRawData, setShowRawData] = useState(false);
+  const [showSubdomains, setShowSubdomains] = useState(false);
   // Extract coordinates with a more flexible regex (supports integers and decimals)
   let lat = 0, lon = 0;
   let hasCoords = false;
@@ -135,8 +138,22 @@ export default function TargetOverview({ target, geoData, shodanData, riskScore,
         <div className="flex items-center justify-between flex-wrap gap-2">
           <h3 className="text-xl font-bold text-white">Target Intelligence: {target}</h3>
         
-          {/* Raw Data Button */}
-          {rawApiData && (Object.values(rawApiData).some(v => v !== null && v !== undefined)) && (
+          <div className="flex items-center gap-2">
+            {/* Subdomains Button */}
+            {subdomains && subdomains.length > 0 && (
+              <button
+                onClick={() => setShowSubdomains(true)}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all duration-300 border border-green-500/30 bg-green-500/10 text-green-300 hover:bg-green-500/20 hover:border-green-500/50 hover:shadow-lg hover:shadow-green-900/20 group"
+                title={`${subdomains.length} Subdomains found`}
+              >
+                <span className="text-sm">🌐</span>
+                <span className="hidden sm:inline">Subdomains</span>
+                <span className="bg-green-500/20 px-1.5 py-0.5 rounded text-[10px]">{subdomains.length}</span>
+              </button>
+            )}
+
+            {/* Raw Data Button */}
+            {rawApiData && (Object.values(rawApiData).some(v => v !== null && v !== undefined)) && (
             <button
               onClick={() => setShowRawData(true)}
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all duration-300 border border-cyan-500/30 bg-cyan-500/10 text-cyan-300 hover:bg-cyan-500/20 hover:border-cyan-500/50 hover:shadow-lg hover:shadow-cyan-900/20 group"
@@ -147,6 +164,7 @@ export default function TargetOverview({ target, geoData, shodanData, riskScore,
               <div className="w-1.5 h-1.5 bg-cyan-400 rounded-full animate-pulse group-hover:animate-none" />
             </button>
           )}
+          </div>
         </div>
         
         <div className="grid grid-cols-2 gap-4">
@@ -205,15 +223,25 @@ export default function TargetOverview({ target, geoData, shodanData, riskScore,
       </div>
     </div>
 
-    {/* Raw Data Viewer Modal */}
-    {rawApiData && (
-      <RawDataViewer
-        isOpen={showRawData}
-        onClose={() => setShowRawData(false)}
-        data={rawApiData}
-        target={target}
-      />
-    )}
-  </>
+      {/* Global Modals for this Target */}
+      {showRawData && (
+        <RawDataViewer 
+          isOpen={showRawData}
+          data={rawApiData || {}} 
+          target={target} 
+          onClose={() => setShowRawData(false)} 
+        />
+      )}
+
+      {showSubdomains && subdomains && (
+        <SubdomainsViewer
+          subdomains={subdomains}
+          target={target}
+          onClose={() => setShowSubdomains(false)}
+        />
+      )}
+    </>
   );
-}
+};
+
+export default TargetOverview;

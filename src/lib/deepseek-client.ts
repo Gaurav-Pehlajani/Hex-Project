@@ -1,5 +1,6 @@
 const GROQ_API_KEY = import.meta.env.VITE_GROQ_API_KEY;
 const GROQ_API_KEY_BACKUP = import.meta.env.VITE_GROQ_API_KEY_BACKUP;
+const GROQ_API_KEY_TERTIARY = import.meta.env.VITE_GROQ_API_KEY_TERTIARY;
 const GROQ_API_URL = 'https://api.groq.com/openai/v1/chat/completions';
 
 export interface Message {
@@ -56,14 +57,30 @@ export async function sendToDeepSeek(
       });
     }
 
-    // Third try: Primary Key with smaller model (Instant) if still 429
-    if (response.status === 429) {
-      console.log('70B model rate limited. Falling back to 8B-instant model...');
+    // Tertiary try: Tertiary Key with Best Model if still 429
+    if (response.status === 429 && GROQ_API_KEY_TERTIARY) {
+      console.log('Backup key rate limited. Trying tertiary key...');
       response = await fetch(GROQ_API_URL, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${GROQ_API_KEY}`
+          'Authorization': `Bearer ${GROQ_API_KEY_TERTIARY}`
+        },
+        body: JSON.stringify(getRequestBody(models[0])),
+        signal: abortSignal
+      });
+    }
+
+    // Final try: Small model (8B) fallback if all best models are rate limited
+    // We try tertiary key first for 8B as it's the newest, then primary as fallback
+    if (response.status === 429) {
+      console.log('All 70B model requests rate limited. Falling back to 8B-instant model...');
+      const fallbackKey = GROQ_API_KEY_TERTIARY || GROQ_API_KEY_BACKUP || GROQ_API_KEY;
+      response = await fetch(GROQ_API_URL, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${fallbackKey}`
         },
         body: JSON.stringify(getRequestBody(models[2])),
         signal: abortSignal
@@ -262,6 +279,56 @@ export async function queryWhois(target: string): Promise<{ formatted: string, r
     return { formatted, raw: data };
   } catch (error: any) {
     return { formatted: `WHOIS: Could not retrieve registration data.`, raw: null };
+  }
+}
+
+export async function querySubdomains(target: string): Promise<{ formatted: string, raw: string[], error?: boolean }> {
+  try {
+    // Only query subdomains for valid domains, not IPs
+    const isIP = /^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(target);
+    if (isIP) {
+      return { formatted: `SUBDOMAINS: N/A for IP addresses`, raw: [] };
+    }
+
+    // Use HackerTarget Host Search API which has liberal CORS and is very fast
+    const apiUrl = `https://api.hackertarget.com/hostsearch/?q=${target}`;
+    const response = await fetch(apiUrl);
+    
+    if (!response.ok) throw new Error(`API error: ${response.status}`);
+    
+    const textData = await response.text();
+    
+    if (textData.includes('error') || textData.includes('API count exceeded')) {
+      throw new Error('API limit reached or target invalid');
+    }
+
+    const subdomainsSet = new Set<string>();
+    
+    // Parse CSV: subdomain,ip
+    const lines = textData.split('\n');
+    lines.forEach(line => {
+      const parts = line.split(',');
+      if (parts.length >= 1 && parts[0].trim().length > 0) {
+        let name = parts[0].trim().toLowerCase();
+        if (name.endsWith(target)) {
+          subdomainsSet.add(name);
+        }
+      }
+    });
+
+    const subdomains = Array.from(subdomainsSet).sort();
+    
+    if (subdomains.length === 0) {
+       return { formatted: `SUBDOMAINS FOR ${target}:\nNo subdomains discovered.`, raw: [] };
+    }
+
+    const formatted = `SUBDOMAINS FOR ${target}:\nFound ${subdomains.length} unique subdomains.\n${subdomains.slice(0, 50).join(', ')}${subdomains.length > 50 ? '... (truncated)' : ''}`;
+    
+    return { formatted, raw: subdomains };
+
+  } catch (error: any) {
+    console.error('Error fetching subdomains:', error);
+    return { formatted: `SUBDOMAINS DATA UNAVAILABLE: ${error.message}`, raw: [], error: true };
   }
 }
 

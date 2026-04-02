@@ -149,6 +149,7 @@ const Index = () => {
   const [shodanData, setShodanData] = useState<string | null>(null);
   const [isScanning, setIsScanning] = useState<boolean>(false);
   const [showHistory, setShowHistory] = useState(false);
+  const [subdomains, setSubdomains] = useState<string[]>([]);
   const [rawApiData, setRawApiData] = useState<RawApiData>({});
 
   // Simple localStorage functions
@@ -698,6 +699,7 @@ const Index = () => {
     setGeoData(null);
     setShodanData(null);
     setRiskScore(0);
+    setSubdomains([]);
     setRawApiData({});
 
     // Check authentication
@@ -733,7 +735,7 @@ const Index = () => {
     }
 
     // Extract target and fetch real data before sending to AI
-    const { extractTarget, queryVirusTotal, queryGeolocation, queryWhois, queryShodan, calculateRiskScore, getRiskLabel } = await import('@/lib/deepseek-client');
+    const { extractTarget, queryVirusTotal, queryGeolocation, queryWhois, queryShodan, querySubdomains, calculateRiskScore, getRiskLabel } = await import('@/lib/deepseek-client');
     const target = extractTarget(messageToSend);
     let realData = '';
     if (target) {
@@ -769,11 +771,12 @@ const Index = () => {
           }
         }
         
-        const [vtResult, geoResult, whoisResult, shodanResult] = await Promise.all([
+        const [vtResult, geoResult, whoisResult, shodanResult, subdomainsResult] = await Promise.all([
           queryVirusTotal(target),
           queryGeolocation(effectiveTarget),
           !isIP ? queryWhois(target) : Promise.resolve({ formatted: 'WHOIS: Only available for domains.', raw: null }),
-          isIP ? queryShodan(effectiveTarget) : Promise.resolve({ formatted: 'SHODAN: Use WHOIS for domains.', raw: null })
+          isIP ? queryShodan(effectiveTarget) : Promise.resolve({ formatted: 'SHODAN: Use WHOIS for domains.', raw: null }),
+          !isIP ? querySubdomains(target) : Promise.resolve({ formatted: 'SUBDOMAINS: N/A for IP addresses.', raw: [] })
         ]);
 
         // Extract formatted strings for AI and dashboard
@@ -781,6 +784,7 @@ const Index = () => {
         const geoData = geoResult.formatted;
         const whoisData = whoisResult.formatted;
         const shodanData = shodanResult.formatted;
+        const subdomainsData = subdomainsResult.formatted;
 
         // Store raw API data for the Raw Data Viewer
         const newRawApiData: RawApiData = {};
@@ -789,6 +793,7 @@ const Index = () => {
         if (whoisResult.raw) newRawApiData.whois = whoisResult.raw;
         if (geoResult.raw) newRawApiData.geolocation = geoResult.raw;
         setRawApiData(newRawApiData);
+        setSubdomains(subdomainsResult.raw || []);
 
         console.log('✅ ALL API DATA FETCHED');
         console.log('VT:', vtData ? 'YES' : 'NO');
@@ -819,7 +824,16 @@ const Index = () => {
         }
         
         // Optimize payload for AI
-        realData = `\n\n[SECURITY SCAN SUMMARY FOR ${target}]\nResolved IP: ${effectiveTarget}\nRisk Score: ${calculatedRiskScore}/100\nVerdict: ${riskLabel}\n\n[VirusTotal]: ${vtData.substring(0, 500)}...\n\n[Geolocation]: ${geoData}\n\n[Whois]: ${whoisData}\n\n[Shodan]: ${shodanData.substring(0, 500)}...`;
+        // Optimize payload for AI - truncate components to stay under token limits
+        const vtExcerpt = vtData.substring(0, 400);
+        const geoExcerpt = geoData.substring(0, 200);
+        const whoisExcerpt = whoisData.substring(0, 400);
+        const shodanExcerpt = shodanData.substring(0, 400);
+        // For the AI prompt, give a smaller subset of subdomains than the UI shows
+        const subdomainListExcerpt = subdomainsResult.raw ? subdomainsResult.raw.slice(0, 25).join(', ') : 'None';
+        const subdomainCount = subdomainsResult.raw ? subdomainsResult.raw.length : 0;
+        
+        realData = `\n\n[SECURITY SCAN SUMMARY FOR ${target}]\nResolved IP: ${effectiveTarget}\nRisk Score: ${calculatedRiskScore}/100\nVerdict: ${riskLabel}\n\n[VirusTotal]: ${vtExcerpt}...\n\n[Geolocation]: ${geoExcerpt}\n\n[Whois]: ${whoisExcerpt}\n\n[Shodan]: ${shodanExcerpt}...\n\n[Subdomains]: Found ${subdomainCount} subdomains. Partial list: ${subdomainListExcerpt}${subdomainCount > 25 ? '...' : ''}`;
       }
     }
 
@@ -882,10 +896,9 @@ const Index = () => {
       userScrolledRef.current = false;
 
       // Use optimized context management for better token efficiency
-      // This ensures that 'assistant' messages containing reports are NOT used for 
-      // token limit calculations in the main chat window.
+      // Groq models like Llama 3 have relatively small context windows (8k), so we use a safe 6k limit
       const filteredMessages = messages.filter(msg => !msg.isError).slice(-6);
-      const optimizedMessages = getOptimizedContext(filteredMessages, 120000);
+      const optimizedMessages = getOptimizedContext(filteredMessages, 6000);
       
       const conversationHistory = optimizedMessages.map(msg => ({
         role: (msg.type === 'user' ? 'user' : 'assistant') as 'user' | 'assistant',
@@ -1221,6 +1234,7 @@ const Index = () => {
                   riskScore={riskScore} 
                   isLoading={isScanning}
                   rawApiData={rawApiData}
+                  subdomains={subdomains}
                 />
               )}
               {messages.length === 0 ? (
