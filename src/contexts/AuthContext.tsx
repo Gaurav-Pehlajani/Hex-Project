@@ -94,7 +94,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     await supabase.auth.signInWithOAuth({
       provider: 'github',
       options: {
-        redirectTo: window.location.origin + '/auth/callback'
+        redirectTo: window.location.origin + '/auth/callback',
+        queryParams: {
+          prompt: 'select_account'
+        }
       }
     });
   };

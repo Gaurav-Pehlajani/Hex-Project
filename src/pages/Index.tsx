@@ -396,6 +396,14 @@ const Index = () => {
     if (!isAuthenticated) return addMessage('assistant', 'Please sign in first.', true);
 
     if (!isRetry && !autoTrigger && !isPremium && !canSendMessage) return setShowBillingPopup(true);
+    
+    // Immediate UI feedback
+    if (!isRetry && !autoTrigger) {
+      addMessage('user', msg);
+      setInput('');
+      setTimeout(() => scrollToBottom(true), 100);
+    }
+
     if (!isRetry && !autoTrigger && !isPremium) await incrementUsage();
 
     const { extractTarget, queryVirusTotal, queryGeolocation, queryWhois, queryShodan, querySubdomains, calculateRiskScore, getRiskLabel } = await import('@/lib/deepseek-client');
@@ -438,12 +446,6 @@ const Index = () => {
       // Cache results for history archival
       scanResults = { target, score, geo: geo.formatted, shodan: infrastructureData, subs: subs.raw, raw };
       realData = `\n\n[SYSTEM DATA ATTACHMENT]:\nCUSTOM RISK SCORE: ${score}%\n${vt.formatted}\n${geo.formatted}\n${whois.formatted}\n${shodan.formatted}\n${subs.formatted}`;
-    }
-
-    if (!isRetry && !autoTrigger) {
-      addMessage('user', msg);
-      setInput('');
-      setTimeout(() => scrollToBottom(true), 100);
     }
 
     const abort = new AbortController();

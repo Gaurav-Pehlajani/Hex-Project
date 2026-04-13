@@ -85,7 +85,10 @@ export const authFunctions = {
     const { data, error } = await supabase.auth.signInWithOAuth({
       provider: 'github',
       options: {
-        redirectTo: `${window.location.origin}/auth/callback`
+        redirectTo: `${window.location.origin}/auth/callback`,
+        queryParams: {
+          prompt: 'select_account'
+        }
       }
     });
     return { data, error };
