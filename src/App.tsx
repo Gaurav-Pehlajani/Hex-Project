@@ -8,6 +8,7 @@ import AuthCallback from "./pages/AuthCallback";
 import Billing from "./pages/Billing";
 import Admin from "./pages/Admin";
 import NotFound from "./pages/NotFound";
+import UserManual from "./pages/UserManual";
 
 import { AuthProvider } from "./contexts/AuthContext";
 
@@ -25,6 +26,7 @@ const App = () => (
           <Route path="/auth/callback" element={<AuthCallback />} />
           <Route path="/billing" element={<Billing />} />
           <Route path="/admin" element={<Admin />} />
+          <Route path="/manual" element={<UserManual />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>

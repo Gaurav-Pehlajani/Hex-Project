@@ -23,6 +23,8 @@ import { supabase } from '@/lib/supabase';
 import { jsPDF } from 'jspdf';
 import html2canvas from 'html2canvas';
 
+import LandingPage from '@/components/LandingPage';
+
 const SYSTEM_PROMPT = `
 You are Hex AI — a professional cybersecurity intelligence assistant. You analyze real security data from Shodan and VirusTotal APIs and explain findings in plain English.
 
@@ -544,7 +546,7 @@ const Index = () => {
     }
   });
 
-  if (!isAuthenticated) return <AuthCard />;
+  if (!isAuthenticated) return <LandingPage />;
 
   return (
     <div className="flex h-screen bg-[#020617] text-green-500 font-mono overflow-hidden relative">
@@ -570,7 +572,7 @@ const Index = () => {
           <div className="flex items-center gap-6">
             <div className="flex flex-col">
               <div className="flex items-center gap-2">
-                <Shield className="h-5 w-5 text-green-400" />
+                <img src="/hex-ai-logo.png" alt="Hex Logo" className="w-6 h-6 object-cover rounded shadow-[0_0_10px_rgba(6,182,212,0.3)] bg-black/40 border border-cyan-500/20" />
                 <span className="text-xl font-black tracking-tighter text-white uppercase italic">Hex</span>
               </div>
               <span className="text-[9px] text-gray-500 uppercase tracking-widest font-bold ml-1">AI Penetration Testing</span>
@@ -644,7 +646,7 @@ const Index = () => {
                   <div className="space-y-6 pt-4">
                     {messages.length === 0 ? (
                       <div className="h-64 flex flex-col items-center justify-center opacity-10 border-2 border-dashed border-green-500/20 rounded-3xl mx-12">
-                         <Shield className="h-16 w-16 mb-4" />
+                         <img src="/hex-ai-logo.png" alt="Hex Logo" className="w-20 h-20 mb-4 object-cover rounded-lg shadow-[0_0_20px_rgba(6,182,212,0.5)] bg-black/40 opacity-70 border border-cyan-500/20" />
                          <span className="text-xl font-black uppercase tracking-[0.3em]">Ready for Analysis</span>
                       </div>
                     ) : (
@@ -694,7 +696,7 @@ const Index = () => {
                   onChange={(e) => setInput(e.target.value)} 
                   onFocus={handleInputFocus} 
                   onKeyDown={(e) => {if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();sendMessage();}}} 
-                  placeholder="Ask about penetration testing, request payloads, or security analysis..." 
+                  placeholder="Enter target domain (e.g. google.com) or IP address for intelligence scan..." 
                   className="bg-gray-900/60 border-green-500/30 text-green-400 text-sm py-4 pl-6 pr-16 min-h-[64px] rounded-2xl focus:border-green-500/60 focus:ring-0 shadow-[0_0_15px_rgba(34,197,94,0.05)] transition-all scrollbar-none placeholder:text-gray-600" 
                 />
                 

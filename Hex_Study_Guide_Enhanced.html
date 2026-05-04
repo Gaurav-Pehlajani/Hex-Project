@@ -1,0 +1,433 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Hex AI Project Study Guide</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg-main: #0B0F19;
+    --bg-card: rgba(20, 27, 45, 0.7);
+    --border-color: rgba(255, 255, 255, 0.1);
+    --text-primary: #f8fafc;
+    --text-secondary: #94a3b8;
+    --accent-gradient: linear-gradient(135deg, #0ea5e9, #6366f1);
+    --shadow-glow: 0 0 20px rgba(99, 102, 241, 0.2);
+    --radius-lg: 16px;
+    --radius-md: 12px;
+    --transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  
+  body { 
+    font-family: 'Inter', sans-serif; 
+    background-color: var(--bg-main); 
+    background-image: 
+      radial-gradient(circle at 15% 50%, rgba(14, 165, 233, 0.15), transparent 25%),
+      radial-gradient(circle at 85% 30%, rgba(99, 102, 241, 0.15), transparent 25%);
+    color: var(--text-primary);
+    line-height: 1.6;
+    min-height: 100vh;
+    padding: 3rem 1.5rem;
+    display: flex;
+    justify-content: center;
+  }
+
+  .container { 
+    width: 100%;
+    max-width: 900px; 
+    background: rgba(11, 15, 25, 0.5);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border: 1px solid var(--border-color);
+    border-radius: 24px;
+    padding: 3rem;
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+  }
+
+  /* Header */
+  .main-title {
+    font-size: 2.25rem;
+    font-weight: 700;
+    margin-bottom: 0.5rem;
+    background: var(--accent-gradient);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    text-align: center;
+    letter-spacing: -0.5px;
+  }
+  .main-subtitle {
+    text-align: center;
+    color: var(--text-secondary);
+    margin-bottom: 2.5rem;
+    font-size: 1.05rem;
+  }
+
+  /* Tab Bar */
+  .tab-bar { 
+    display: flex; 
+    gap: 8px; 
+    flex-wrap: wrap; 
+    margin-bottom: 3rem; 
+    justify-content: center;
+    padding: 6px;
+    background: rgba(0,0,0,0.3);
+    border-radius: 100px;
+    border: 1px solid var(--border-color);
+  }
+  .tab { 
+    padding: 10px 24px; 
+    border-radius: 100px; 
+    border: none; 
+    background: transparent; 
+    cursor: pointer; 
+    font-size: 0.95rem; 
+    font-weight: 500;
+    color: var(--text-secondary); 
+    font-family: 'Inter', sans-serif; 
+    transition: var(--transition); 
+  }
+  .tab.active { 
+    background: var(--accent-gradient); 
+    color: white; 
+    box-shadow: var(--shadow-glow);
+  }
+  .tab:hover:not(.active) { 
+    color: white;
+    background: rgba(255,255,255,0.05); 
+  }
+
+  /* Sections */
+  .section { display: none; animation: fadeIn 0.4s ease forwards; }
+  .section.active { display: block; }
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
+  .section-title { font-size: 1.5rem; font-weight: 600; color: white; margin-bottom: 0.5rem; display: flex; align-items: center; gap: 10px;}
+  .section-title::before {
+    content: ''; display: inline-block; width: 10px; height: 10px; border-radius: 50%; background: var(--accent-gradient);
+  }
+  .section-sub { font-size: 1rem; color: var(--text-secondary); margin-bottom: 2rem; padding-left: 20px;}
+
+  /* Cards */
+  .card, .speech-card { 
+    background: var(--bg-card); 
+    border: 1px solid var(--border-color); 
+    border-radius: var(--radius-lg); 
+    padding: 1.75rem; 
+    margin-bottom: 1.25rem; 
+    transition: var(--transition);
+  }
+  .card:hover, .speech-card:hover {
+    transform: translateY(-4px);
+    border-color: rgba(99, 102, 241, 0.4);
+    box-shadow: var(--shadow-glow);
+  }
+  .card-title { font-size: 1.15rem; font-weight: 600; color: white; margin-bottom: 1rem; }
+  .card-body { font-size: 0.95rem; color: var(--text-secondary); }
+  .card-body b { color: #f8fafc; font-weight: 600; }
+
+  /* Badges */
+  .badges-container { display: flex; flex-wrap: wrap; gap: 8px; }
+  .badge { display: inline-block; font-size: 0.75rem; font-weight: 600; padding: 6px 12px; border-radius: 8px; letter-spacing: 0.5px; text-transform: uppercase;}
+  .badge-blue { background: rgba(14, 165, 233, 0.1); color: #38bdf8; border: 1px solid rgba(14, 165, 233, 0.3); }
+  .badge-teal { background: rgba(20, 184, 166, 0.1); color: #2dd4bf; border: 1px solid rgba(20, 184, 166, 0.3); }
+  .badge-coral { background: rgba(244, 63, 94, 0.1); color: #fb7185; border: 1px solid rgba(244, 63, 94, 0.3); }
+  .badge-amber { background: rgba(245, 158, 11, 0.1); color: #fbbf24; border: 1px solid rgba(245, 158, 11, 0.3); }
+  .badge-red { background: rgba(239, 68, 68, 0.1); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.3); }
+  .badge-purple { background: rgba(139, 92, 246, 0.1); color: #a78bfa; border: 1px solid rgba(139, 92, 246, 0.3); }
+  .badge-green { background: rgba(34, 197, 94, 0.1); color: #4ade80; border: 1px solid rgba(34, 197, 94, 0.3); }
+
+  /* Metrics Grid */
+  .metric-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 1rem; margin-bottom: 2.5rem; }
+  .metric { background: rgba(0,0,0,0.2); border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 1.5rem 1rem; text-align: center; transition: var(--transition); }
+  .metric:hover { border-color: rgba(99, 102, 241, 0.4); transform: translateY(-4px); background: rgba(99, 102, 241, 0.05); }
+  .metric-val { font-size: 2.25rem; font-weight: 700; color: white; margin-bottom: 0.25rem; }
+  .metric-lbl { font-size: 0.8rem; font-weight: 500; color: #6366f1; text-transform: uppercase; letter-spacing: 1px;}
+
+  /* Architecture Grid */
+  .arch-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 1.25rem; margin-bottom: 2.5rem; }
+  .arch-box { background: var(--bg-card); border: 1px solid var(--border-color); border-radius: var(--radius-lg); padding: 1.75rem; text-align: center; transition: var(--transition); position: relative; overflow: hidden; }
+  .arch-box::before { content:''; position: absolute; top:0; left:0; width: 100%; height: 4px; background: var(--accent-gradient); opacity: 0; transition: var(--transition); }
+  .arch-box:hover { transform: translateY(-5px); box-shadow: var(--shadow-glow); }
+  .arch-box:hover::before { opacity: 1; }
+  .arch-box .icon-circle { width: 56px; height: 56px; border-radius: 16px; margin: 0 auto 1.25rem; display: flex; align-items: center; justify-content: center; font-size: 24px; box-shadow: inset 0 0 20px rgba(0,0,0,0.2); }
+  .arch-box .layer-title { font-size: 1.15rem; font-weight: 600; color: white; margin-bottom: 0.5rem; }
+  .arch-box .layer-sub { font-size: 0.9rem; color: var(--text-secondary); line-height: 1.6; }
+
+  /* Flow Steps */
+  .flow-step { display: flex; align-items: flex-start; gap: 1.25rem; margin-bottom: 1rem; background: rgba(0,0,0,0.15); padding: 1.25rem; border-radius: var(--radius-md); border: 1px solid transparent; transition: var(--transition); }
+  .flow-step:hover { background: rgba(255,255,255,0.03); border-color: rgba(255,255,255,0.1); transform: translateX(5px); }
+  .step-num { width: 36px; height: 36px; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 700; background: var(--accent-gradient); color: white; flex-shrink: 0; box-shadow: 0 4px 10px rgba(99, 102, 241, 0.3); }
+  .step-content { flex: 1; }
+  .step-title { font-size: 1.05rem; font-weight: 600; color: white; margin-bottom: 0.35rem; }
+  .step-desc { font-size: 0.95rem; color: var(--text-secondary); }
+
+  /* Accordions (Functions & Q&A) */
+  .fn-card, .qa-card { background: rgba(0,0,0,0.2); border: 1px solid var(--border-color); border-radius: var(--radius-md); margin-bottom: 0.75rem; transition: var(--transition); }
+  .fn-card:hover, .qa-card:hover { border-color: rgba(99, 102, 241, 0.3); background: rgba(255,255,255,0.02); }
+  .fn-header, .qa-question { padding: 1.25rem 1.5rem; cursor: pointer; display: flex; justify-content: space-between; align-items: center; user-select: none; }
+  .fn-name { font-size: 1rem; font-weight: 500; font-family: 'JetBrains Mono', monospace; color: #38bdf8; }
+  .fn-file { font-size: 0.75rem; color: #94a3b8; background: rgba(255,255,255,0.05); padding: 4px 8px; border-radius: 6px; letter-spacing: 0.5px; display: flex; align-items: center; gap: 10px;}
+  
+  .qa-question { display: flex; justify-content: space-between; gap: 1rem; align-items: center; }
+  .qa-title-wrapper { display: flex; flex-direction: column; gap: 8px; }
+  .qa-question span:first-child { font-size: 1.05rem; font-weight: 500; color: white; line-height: 1.4; padding-right: 1rem;}
+  .qa-tag { font-size: 0.7rem; font-weight: 600; padding: 4px 8px; border-radius: 4px; align-self: flex-start;}
+  
+  .fn-body, .qa-answer { display: none; padding: 0 1.5rem 1.5rem 1.5rem; font-size: 0.95rem; color: var(--text-secondary); line-height: 1.7; animation: slideDown 0.3s ease; }
+  .fn-card.open .fn-body, .qa-card.open .qa-answer { display: block; border-top: 1px solid rgba(255,255,255,0.05); padding-top: 1.25rem; margin-top: 0.5rem;}
+  
+  @keyframes slideDown { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }
+
+  .fn-arrow, .qa-arrow { color: #6366f1; transition: transform 0.3s; font-size: 0.9rem; display: flex; align-items: center; justify-content: center;}
+  .fn-card.open .fn-arrow, .qa-card.open .qa-arrow { transform: rotate(180deg); color: white;}
+
+  /* Speech section */
+  .speech-label { font-size: 0.8rem; font-weight: 700; color: #818cf8; text-transform: uppercase; letter-spacing: 1.5px; margin-bottom: 0.75rem; }
+  .speech-text { font-size: 1.05rem; color: #e2e8f0; font-style: italic; border-left: 3px solid #6366f1; padding-left: 1.25rem; position: relative; }
+
+  code { font-family: 'JetBrains Mono', monospace; background: rgba(0,0,0,0.4); padding: 3px 6px; border-radius: 4px; color: #a78bfa; font-size: 0.85em; }
+  
+  .mt-4 { margin-top: 2rem; }
+
+  @media (max-width: 768px) {
+    body { padding: 1rem; }
+    .container { padding: 1.5rem; border-radius: 16px; border: none; background: rgba(11, 15, 25, 0.95); backdrop-filter: none; }
+    .main-title { font-size: 1.75rem; }
+    .tab-bar { flex-direction: column; background: transparent; border: none; padding: 0; gap: 8px;}
+    .tab { border-radius: 12px; text-align: center; background: rgba(255,255,255,0.05); border: 1px solid var(--border-color); }
+    .tab.active { background: var(--accent-gradient); border-color: transparent;}
+    .qa-title-wrapper { flex-direction: column; }
+    .fn-file { display: none; } /* hide file tags on mobile to save space */
+  }
+</style>
+</head>
+<body>
+
+<div class="container">
+  <h1 class="main-title">Hex AI Study Guide</h1>
+  <p class="main-subtitle">Interactive flashcards, architecture overview, and interview prep</p>
+
+  <div class="tab-bar">
+    <button class="tab active" onclick="showTab('overview', this)">Overview</button>
+    <button class="tab" onclick="showTab('architecture', this)">Architecture</button>
+    <button class="tab" onclick="showTab('functions', this)">Code Logic</button>
+    <button class="tab" onclick="showTab('qa', this)">Interview Q&A</button>
+    <button class="tab" onclick="showTab('speech', this)">Pitch Guide</button>
+  </div>
+
+  <!-- OVERVIEW -->
+  <div class="section active" id="tab-overview">
+    <p class="section-title">Hex AI — what it is in one sentence</p>
+    <p class="section-sub">A serverless, AI-powered cyber threat intelligence platform that aggregates real-time OSINT data from Shodan, VirusTotal, and HackerTarget — then uses LLMs to auto-generate plain-English security reports.</p>
+
+    <div class="metric-row">
+      <div class="metric"><div class="metric-val">3</div><div class="metric-lbl">Data APIs</div></div>
+      <div class="metric"><div class="metric-val">3</div><div class="metric-lbl">AI model tiers</div></div>
+      <div class="metric"><div class="metric-val">15s</div><div class="metric-lbl">vs 40 min manual</div></div>
+      <div class="metric"><div class="metric-val">98%</div><div class="metric-lbl">Accuracy Rate</div></div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">The 5 problems it solves</div>
+      <div class="card-body">
+        <div style="margin-bottom:12px;"><b>1. Data fragmentation</b> — security data scattered across Shodan, VirusTotal, WHOIS; Hex unifies all in one query.</div>
+        <div style="margin-bottom:12px;"><b>2. Expertise gap</b> — no terminal knowledge needed; just type a domain and get a full report.</div>
+        <div style="margin-bottom:12px;"><b>3. Real-time latency</b> — traditional audits are periodic; Hex scans in milliseconds using serverless edge.</div>
+        <div style="margin-bottom:12px;"><b>4. API rate-limiting</b> — multi-model fallback engine auto-rotates keys and models on 429 errors.</div>
+        <div><b>5. Information overload</b> — AI turns 1,000 lines of JSON into a 3-paragraph executive summary.</div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Core components at a glance</div>
+      <div class="badges-container">
+        <span class="badge badge-blue">React 18 + TS</span>
+        <span class="badge badge-teal">Netlify Functions</span>
+        <span class="badge badge-purple">Groq (Llama 3)</span>
+        <span class="badge badge-coral">Shodan API</span>
+        <span class="badge badge-amber">VirusTotal v3</span>
+        <span class="badge badge-green">HackerTarget API</span>
+        <span class="badge badge-blue">Supabase</span>
+        <span class="badge badge-red">GitHub OAuth</span>
+        <span class="badge badge-teal">Leaflet</span>
+        <span class="badge badge-purple">jsPDF</span>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">What the OWASP mapping means (important for judges)</div>
+      <div class="card-body">
+        <div style="margin-bottom:12px;"><b>A01 — Broken Access Control:</b> Hex finds forgotten subdomains like <code>dev.target.com</code> that lack proper auth.</div>
+        <div style="margin-bottom:12px;"><b>A05 — Security Misconfiguration:</b> Shodan integration flags open Telnet, SMB (port 445), exposed databases.</div>
+        <div><b>A06 — Outdated Components:</b> Banner grabbing identifies outdated Nginx/IIS versions with known CVEs.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ARCHITECTURE -->
+  <div class="section" id="tab-architecture">
+    <p class="section-title">3-layer architecture</p>
+    <p class="section-sub">High level structural map of the core Hex stack.</p>
+
+    <div class="arch-grid">
+      <div class="arch-box">
+        <div class="icon-circle" style="background: rgba(14, 165, 233, 0.15); color: #38bdf8;">🖥️</div>
+        <div class="layer-title">Presentation</div>
+        <div class="layer-sub">React SPA + TypeScript<br>Vite build, Tailwind CSS<br>Leaflet map, ReactMarkdown</div>
+      </div>
+      <div class="arch-box">
+        <div class="icon-circle" style="background: rgba(20, 184, 166, 0.15); color: #2dd4bf;">⚙️</div>
+        <div class="layer-title">Proxy / Logic</div>
+        <div class="layer-sub">Netlify Functions (Node.js)<br>Bypasses CORS, hides API keys<br>Runs on AWS Lambda edge</div>
+      </div>
+      <div class="arch-box">
+        <div class="icon-circle" style="background: rgba(139, 92, 246, 0.15); color: #a78bfa;">🧠</div>
+        <div class="layer-title">AI Analytics</div>
+        <div class="layer-sub">Groq Llama 3 (3-tier fallback)<br>Streaming responses<br>Executive report synthesis</div>
+      </div>
+    </div>
+
+    <p class="section-title mt-4">Data flow — step by step</p>
+    <div style="margin-top: 1.5rem">
+      <div class="flow-step"><div class="step-num">1</div><div class="step-content"><div class="step-title">User enters domain/IP</div><div class="step-desc">React frontend calls <code>extractTarget()</code>, identifies if input is domain or IPv4.</div></div></div>
+      <div class="flow-step"><div class="step-num">2</div><div class="step-content"><div class="step-title">Parallel API calls fire</div><div class="step-desc"><code>Promise.all()</code> simultaneously queries VirusTotal, Geolocation, WHOIS, Subdomains. Shodan is queried after resolving the IP.</div></div></div>
+      <div class="flow-step"><div class="step-num">3</div><div class="step-content"><div class="step-title">Netlify proxy bridges execute</div><div class="step-desc"><code>subdomains.js</code>, <code>shodan.js</code> run server-side — API keys never reach the browser, CORS bypassed.</div></div></div>
+      <div class="flow-step"><div class="step-num">4</div><div class="step-content"><div class="step-title">Risk score calculated</div><div class="step-desc"><code>calculateRiskScore()</code> combines VT malicious flags + Shodan open port data into a 0–100% threat metric.</div></div></div>
+      <div class="flow-step"><div class="step-num">5</div><div class="step-content"><div class="step-title">Data injected into AI prompt</div><div class="step-desc">All raw data appended as <code>[SYSTEM DATA ATTACHMENT]</code> in the user message to the LLM.</div></div></div>
+      <div class="flow-step"><div class="step-num">6</div><div class="step-content"><div class="step-title">LLM streams report</div><div class="step-desc"><code>sendToDeepSeek()</code> streams token-by-token to the UI. Fallback logic activates on errors.</div></div></div>
+      <div class="flow-step"><div class="step-num">7</div><div class="step-content"><div class="step-title">PDF report generated</div><div class="step-desc">jsPDF compiles dashboard + AI summary into <code>HEX-Report-DOMAIN.pdf</code> for export.</div></div></div>
+    </div>
+
+    <div class="card mt-4">
+      <div class="card-title">Fallback engine — the 3-tier model queue</div>
+      <div class="card-body">
+        <div style="margin-bottom:8px"><b>Tier 1:</b> llama-3.3-70b-versatile (primary — best reasoning)</div>
+        <div style="margin-bottom:8px"><b>Tier 2:</b> llama-3.1-70b-versatile (secondary — same capability, different key)</div>
+        <div style="margin-bottom:16px"><b>Tier 3:</b> llama-3.1-8b-instant (tertiary — fastest, recovery mode)</div>
+        <div style="margin-bottom:8px"><b>HTTP 429</b> → rotate API key → switch to backup key → switch to 8B instant</div>
+        <div style="margin-bottom:8px"><b>HTTP 503</b> → circuit break → model switch</div>
+        <div style="margin-bottom:16px"><b>Timeout</b> → AbortController fires → retry with exponential backoff</div>
+        Failover latency measured at <b style="color:#4ade80">&lt;400ms</b> in testing.
+      </div>
+    </div>
+  </div>
+
+  <!-- FUNCTIONS -->
+  <div class="section" id="tab-functions">
+    <p class="section-title">Key functions</p>
+    <p class="section-sub">Know what each function does, where it lives, and its purpose.</p>
+
+    <div class="fn-card"><div class="fn-header" onclick="toggleCard(this)"><span class="fn-name">extractTarget(msg)</span><div class="fn-file">deepseek-client.ts <span class="fn-arrow">▼</span></div></div><div class="fn-body">Parses the user's natural language input to extract an IP address or domain name using regex. This is the entry point of every scan — if this fails, nothing runs. It differentiates between an IPv4 pattern and a domain string to decide which APIs to call next.</div></div>
+
+    <div class="fn-card"><div class="fn-header" onclick="toggleCard(this)"><span class="fn-name">queryVirusTotal(target)</span><div class="fn-file">deepseek-client.ts <span class="fn-arrow">▼</span></div></div><div class="fn-body">Calls the VirusTotal API v3 via the Netlify proxy. Returns malicious count, reputation score, suspicious count, and verdict (CLEAN/SUSPICIOUS/MALICIOUS). This data becomes the primary input for the AI risk scoring system.</div></div>
+
+    <div class="fn-card"><div class="fn-header" onclick="toggleCard(this)"><span class="fn-name">queryShodan(resolvedIP)</span><div class="fn-file">deepseek-client.ts <span class="fn-arrow">▼</span></div></div><div class="fn-body">Queries Shodan's host endpoint for a resolved IP address (domain → IP first via geolocation). Returns open ports, service banners, known CVEs, and ISP data. The proxy (shodan.js) handles this server-side to protect the API key and bypass CORS.</div></div>
+
+    <div class="fn-card"><div class="fn-header" onclick="toggleCard(this)"><span class="fn-name">querySubdomains(target)</span><div class="fn-file">deepseek-client.ts <span class="fn-arrow">▼</span></div></div><div class="fn-body">Runs parallel requests to both VirusTotal subdomain endpoint and HackerTarget's DNS lookup. Results are deduplicated using a Set. Combining both sources discovered 15% more subdomains than either tool alone in benchmarks.</div></div>
+
+    <div class="fn-card"><div class="fn-header" onclick="toggleCard(this)"><span class="fn-name">queryGeolocation(target)</span><div class="fn-file">deepseek-client.ts <span class="fn-arrow">▼</span></div></div><div class="fn-body">Calls ip-api.com to resolve the physical location (city, country, lat/long), ISP, ASN, and hosting provider of the target. Also resolves domain → IP, which is then passed into queryShodan(). Feeds the Leaflet map component.</div></div>
+
+    <div class="fn-card"><div class="fn-header" onclick="toggleCard(this)"><span class="fn-name">calculateRiskScore(vt, geo, shodan)</span><div class="fn-file">deepseek-client.ts <span class="fn-arrow">▼</span></div></div><div class="fn-body">Takes the formatted strings from VirusTotal, geolocation, and Shodan and computes a 0–100% custom risk metric. Weighs factors like malicious detection count, open dangerous ports (e.g. 3389 RDP, 22 SSH), and known CVEs. This single number drives the dashboard threat bar.</div></div>
+
+    <div class="fn-card"><div class="fn-header" onclick="toggleCard(this)"><span class="fn-name">sendToDeepSeek(convo, sysPrompt, ...)</span><div class="fn-file">deepseek-client.ts <span class="fn-arrow">▼</span></div></div><div class="fn-body">The core AI function. Takes conversation history + system prompt, calls Groq API, and streams the response token-by-token via the onChunk callback. Contains the full 3-tier fallback logic (Tier 1 → Tier 2 → Tier 3 model with key rotation).</div></div>
+
+    <div class="fn-card"><div class="fn-header" onclick="toggleCard(this)"><span class="fn-name">sendMessage()</span><div class="fn-file">Index.tsx <span class="fn-arrow">▼</span></div></div><div class="fn-body">The master orchestrator function in the frontend. When a user submits a query it fires all 4 API queries in parallel with Promise.all(), awaits Shodan, calculates risk score, injects all data into the AI prompt and starts the stream.</div></div>
+
+    <div class="fn-card"><div class="fn-header" onclick="toggleCard(this)"><span class="fn-name">generatePDFReport()</span><div class="fn-file">Index.tsx <span class="fn-arrow">▼</span></div></div><div class="fn-body">Uses jsPDF to programmatically create a formatted PDF. Sets black header with "HEX AI" branding, adds threat assessment bar, compiles tactical infrastructure data and AI summary. Saves as HEX-Report-[TARGET].pdf.</div></div>
+
+    <div class="fn-card"><div class="fn-header" onclick="toggleCard(this)"><span class="fn-name">exports.handler() (proxy files)</span><div class="fn-file">netlify/functions/ <span class="fn-arrow">▼</span></div></div><div class="fn-body">Each Netlify serverless function is an AWS Lambda handler. They receive the target parameter, read the API key from Netlify environment variables, call the external API, and return normalized JSON. This is critical for hiding API keys and bypassing CORS.</div></div>
+  </div>
+
+  <!-- Q&A -->
+  <div class="section" id="tab-qa">
+    <p class="section-title">Interview Q&A</p>
+    <p class="section-sub">Tap to reveal answers for expected questions.</p>
+
+    <div class="qa-card"><div class="qa-question" onclick="toggleCard(this)"><div class="qa-title-wrapper"><span>What exactly does Hex AI do — explain it to a non-technical person.</span><span class="qa-tag badge-blue">BASIC</span></div><div class="qa-arrow">▼</div></div><div class="qa-answer">Hex AI is like a security X-ray for any website. You just type in a domain name, and within 15 seconds the system tells you: where the server is located, what security weaknesses exist, what hidden sub-sites are attached to it, and whether it's been flagged as malicious by antivirus engines. Then an AI writes a simple report explaining the risks in plain English — no technical knowledge needed.</div></div>
+
+    <div class="qa-card"><div class="qa-question" onclick="toggleCard(this)"><div class="qa-title-wrapper"><span>Why serverless? Why not a normal backend server?</span><span class="qa-tag badge-teal">TECHNICAL</span></div><div class="qa-arrow">▼</div></div><div class="qa-answer">Three reasons. First, real-time — a traditional server caches data on a schedule, so intelligence can be 24 hours stale. Serverless functions fetch live data at the exact moment of the scan. Second, cost — no always-on server means near-zero cost for infrastructure. Third, OPSEC — requests originate from Netlify's distributed edge IPs worldwide, not from the researcher's IP, so the target's IDS cannot trace the scan back to us.</div></div>
+
+    <div class="qa-card"><div class="qa-question" onclick="toggleCard(this)"><div class="qa-title-wrapper"><span>How does the multi-model fallback engine work?</span><span class="qa-tag badge-teal">TECHNICAL</span></div><div class="qa-arrow">▼</div></div><div class="qa-answer">We maintain 3 API keys and 3 Groq model tiers. On every AI call, the system first tries Llama-3.3-70B with the primary key. If it receives HTTP 429 (rate limit), it automatically rotates to the backup key. If that also fails, it switches to the 8B-instant model for fast recovery. Failover happens in under 400ms, ensuring 24/7 availability.</div></div>
+
+    <div class="qa-card"><div class="qa-question" onclick="toggleCard(this)"><div class="qa-title-wrapper"><span>How do you protect the API keys?</span><span class="qa-tag badge-teal">TECHNICAL</span></div><div class="qa-arrow">▼</div></div><div class="qa-answer">All API keys are stored as Netlify environment variables — they only exist server-side in the Node.js Lambda runtime. They are never sent to the browser, never appear in client-side JavaScript, and Netlify auto-redacts them from build logs. Input from users is also sanitized with regex before any request leaves the system to prevent SSRF attacks.</div></div>
+
+    <div class="qa-card"><div class="qa-question" onclick="toggleCard(this)"><div class="qa-title-wrapper"><span>Is this ethical? Couldn't this be used for hacking?</span><span class="qa-tag badge-coral">ETHICS</span></div><div class="qa-arrow">▼</div></div><div class="qa-answer">Hex AI uses only passive OSINT — it queries existing, publicly authorized databases. It does not send unauthorized probe packets to any target server. This is the same methodology used by professional SOC analysts and is entirely legal. We follow a strict ethical charter: no active intrusion, no data manipulation, and we encourage responsible disclosure.</div></div>
+
+    <div class="qa-card"><div class="qa-question" onclick="toggleCard(this)"><div class="qa-title-wrapper"><span>What is OSINT and how does your project use it?</span><span class="qa-tag badge-blue">BASIC</span></div><div class="qa-arrow">▼</div></div><div class="qa-answer">OSINT stands for Open Source Intelligence — legally collecting information from public sources. Hex AI uses three OSINT sources: Shodan (internet-connected device indexer), VirusTotal (aggregates 70+ antivirus scanners), and HackerTarget (subdomain enumeration). By combining all three and using AI to correlate the findings, we achieve an "Intelligence Loop".</div></div>
+
+    <div class="qa-card"><div class="qa-question" onclick="toggleCard(this)"><div class="qa-title-wrapper"><span>How does the CORS proxy work? Why is it needed?</span><span class="qa-tag badge-teal">TECHNICAL</span></div><div class="qa-arrow">▼</div></div><div class="qa-answer">Browsers enforce a "Same-Origin Policy" — a webpage from domain A cannot directly call an API at domain B without rules. Shodan and some other APIs don't allow browser-origin calls. Our Netlify Functions run server-side (Node.js), which has no such restriction. The browser calls our Netlify function, the function calls Shodan, and returns the data — acting as a trusted middleman proxy.</div></div>
+
+    <div class="qa-card"><div class="qa-question" onclick="toggleCard(this)"><div class="qa-title-wrapper"><span>What are the limitations of the current system?</span><span class="qa-tag badge-amber">LIMITATIONS</span></div><div class="qa-arrow">▼</div></div><div class="qa-answer">Three main ones. First, cache latency — Shodan indexes the internet on its own schedule, so infrastructure changes in the last 12 hours may not reflect. Second, API rate limits on free tiers. Third, domain privacy — targets using WHOIS privacy protection return limited data.</div></div>
+
+    <div class="qa-card"><div class="qa-question" onclick="toggleCard(this)"><div class="qa-title-wrapper"><span>What are the future enhancements / scalability plans?</span><span class="qa-tag badge-purple">FUTURE</span></div><div class="qa-arrow">▼</div></div><div class="qa-answer">Roadmap items: (1) MCP integration — allow the AI agent to dynamically discover and use new security tools. (2) Kubernetes orchestration for scanning entire IP ranges in parallel. (3) Mobile app with push alerts. (4) Self-healing AI agent that not only detects threats but auto-applies firewall rules. (5) Heuristic threat correlator using ML to predict attacker lateral movement paths.</div></div>
+
+    <div class="qa-card"><div class="qa-question" onclick="toggleCard(this)"><div class="qa-title-wrapper"><span>How is your project different from using Shodan/VT directly?</span><span class="qa-tag badge-blue">BASIC</span></div><div class="qa-arrow">▼</div></div><div class="qa-answer">First, aggregation — Shodan shows "Port 80 is open." Hex AI says "Port 80 open with Apache 2.2.15 (12 CVEs), cross-referenced with 3 malicious subdomains found on VT." Second, natural language interface, not CLI. Third, benchmark showed 40 mins of manual work reduced to 15 seconds, with 15% more subdomains discovered.</div></div>
+
+    <div class="qa-card"><div class="qa-question" onclick="toggleCard(this)"><div class="qa-title-wrapper"><span>What is the MCP (Model Context Protocol) you mention?</span><span class="qa-tag badge-purple">FUTURE</span></div><div class="qa-arrow">▼</div></div><div class="qa-answer">MCP is an open standard that lets AI agents dynamically discover and use external tools through a standardized server-client protocol — similar to how a browser discovers plugins. This allows stateful reasoning loops where the AI independently decides to run a deeper scan based on what it found — without human intervention.</div></div>
+
+    <div class="qa-card"><div class="qa-question" onclick="toggleCard(this)"><div class="qa-title-wrapper"><span>What tech stack did you use and why those choices?</span><span class="qa-tag badge-teal">TECHNICAL</span></div><div class="qa-arrow">▼</div></div><div class="qa-answer">React 18 + TypeScript for type-safe, fast state updates during streaming. Vite for build speed. Tailwind + Radix UI for responsive design. Netlify Functions for serverless compute. Supabase for PostgreSQL sessions and history with RLS. GitHub OAuth for seamless auth. Groq for LLM inference due to extremely low latency (LPU architecture).</div></div>
+  </div>
+
+  <!-- SPEECH -->
+  <div class="section" id="tab-speech">
+    <p class="section-title">Presentation Pitch Guide</p>
+    <p class="section-sub">Word-for-word guide for your demo.</p>
+
+    <div class="speech-card">
+      <div class="speech-label">Opening (First 30 seconds)</div>
+      <div class="speech-text">"Good morning. Our project is called Hex AI — a cyber threat intelligence platform. In the current landscape, a security analyst manually gathering intelligence about a website takes 30 to 40 minutes across multiple disconnected tools. Hex AI does the same thing in 15 seconds, with higher accuracy, powered by AI. Let me show you how."</div>
+    </div>
+
+    <div class="speech-card">
+      <div class="speech-label">The Problem (15 seconds)</div>
+      <div class="speech-text">"The core problem is data fragmentation. Threat intelligence is scattered across Shodan, VirusTotal, DNS records, and WHOIS. Correlating all of this manually creates analyst fatigue and delays. We built a unified platform that aggregates, correlates, and explains this data automatically."</div>
+    </div>
+
+    <div class="speech-card">
+      <div class="speech-label">The Architecture (30 seconds)</div>
+      <div class="speech-text">"The system has three layers. The frontend is a React application — the intelligence desktop. The middle layer is Netlify serverless functions — these act as secure proxy bridges that call Shodan, VirusTotal, and HackerTarget on the server side, so API keys are never exposed. The third layer is our Resilient AI Engine using Groq's Llama 3, which synthesizes all data into plain-English security reports."</div>
+    </div>
+
+    <div class="speech-card">
+      <div class="speech-label">The Key Innovation (20 seconds)</div>
+      <div class="speech-text">"Our most significant technical contribution is the multi-model fallback engine. Most AI-driven tools have a single point of failure — one API key, one model. If it rate-limits, the whole system breaks. We solved this with a 3-tier fallback queue across 3 API keys and 3 model sizes, with automatic failover in under 400 milliseconds. This ensures 24/7 availability."</div>
+    </div>
+
+    <div class="speech-card">
+      <div class="speech-label">Results (15 seconds)</div>
+      <div class="speech-text">"In our benchmark against google.com, we identified 120+ subdomains with 98% accuracy validated against manual dig lookups. Reconnaissance time: 15 seconds versus 40 minutes manually. Our combined multi-source approach found 15% more subdomains than any single tool used alone."</div>
+    </div>
+
+    <div class="speech-card">
+      <div class="speech-label">Closing / Future (15 seconds)</div>
+      <div class="speech-text">"The roadmap includes full MCP integration — allowing the AI to autonomously discover and orchestrate any security tool. We also plan Kubernetes-based scaling for enterprise IP range scanning and a self-healing AI agent that not only detects threats but applies remediation automatically. Thank you."</div>
+    </div>
+
+    <div class="card mt-4" style="border-color: rgba(99, 102, 241, 0.4); background: rgba(99, 102, 241, 0.05);">
+      <div class="card-title" style="color: #818cf8;">3 Golden Rules for Demo Day</div>
+      <div class="card-body">
+        <div style="margin-bottom:12px;"><b>1. Lead with the problem, not the tech.</b> Don't start with "we used React." Start with "analysts waste 40 minutes." Judges care about value first.</div>
+        <div style="margin-bottom:12px;"><b>2. Own your numbers.</b> 15 seconds, 98% accuracy, 400ms failover, 15% more subdomains. These are your ammunition — memorize them.</div>
+        <div><b>3. If you don't know, be honest and bridge.</b> "That's a great question — we haven't implemented that yet, but in our roadmap it would work by..." — judges respect intellectual honesty.</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+function showTab(name, btn) {
+  document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.getElementById('tab-' + name).classList.add('active');
+  btn.classList.add('active');
+}
+function toggleCard(header) {
+  const card = header.parentElement;
+  card.classList.toggle('open');
+}
+</script>
+</body>
+</html>

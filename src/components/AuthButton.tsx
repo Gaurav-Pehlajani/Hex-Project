@@ -294,16 +294,18 @@ export function AuthCard() {
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          <p className="text-gray-400 text-sm">
-            Sign in with GitHub to start using Hex AI assistant with conversation memory.
+          <p className="text-gray-400 text-sm mb-4">
+            Sign in to start using Hex AI.
           </p>
-          <Button
-            onClick={signInWithGitHub}
-            className="w-full bg-green-600 hover:bg-green-700 text-white"
-          >
-            <Github className="h-4 w-4 mr-2" />
-            Sign in with GitHub
-          </Button>
+          <div className="space-y-3">
+            <Button
+              onClick={signInWithGitHub}
+              className="w-full bg-green-600 hover:bg-green-700 text-white"
+            >
+              <Github className="h-4 w-4 mr-2" />
+              Sign in with GitHub
+            </Button>
+          </div>
         </CardContent>
       </Card>
     );
