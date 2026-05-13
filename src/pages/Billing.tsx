@@ -92,7 +92,7 @@ export default function Billing() {
             console.log('🔄 Creating transaction record...');
             const { transaction, error } = await billingFunctions.createTransaction(
               user.id,
-              3.00, // $3 USD
+              299.00, // Rs. 299 INR
               'subscription',
               {
                 plan: 'premium_monthly',
@@ -379,7 +379,7 @@ export default function Billing() {
               </CardHeader>
               <CardContent className="space-y-6">
                 <div className="text-center">
-                  <div className="text-3xl font-bold text-yellow-400 mb-2">$3/month</div>
+                  <div className="text-3xl font-bold text-yellow-400 mb-2">Rs. 299/month</div>
                   <div className="text-gray-400 text-sm">Unlimited AI conversations</div>
                 </div>
 
@@ -404,8 +404,8 @@ export default function Billing() {
 
                 <button
                   className="intaSendPayButton w-full bg-yellow-600 hover:bg-yellow-700 text-white font-medium py-3 px-4 rounded-lg transition-colors flex items-center justify-center gap-2"
-                  data-amount="3.00"
-                  data-currency="USD"
+                  data-amount="299.00"
+                  data-currency="INR"
                   data-email={profile?.email || user.email}
                   data-first_name={profile?.full_name?.split(' ')[0] || 'User'}
                   data-last_name={profile?.full_name?.split(' ').slice(1).join(' ') || 'Premium'}
@@ -422,7 +422,7 @@ export default function Billing() {
                   data-address=""
                 >
                   <Zap className="h-4 w-4" />
-                  Upgrade to Premium ($3/month)
+                  Upgrade to Premium (Rs. 299/month)
                 </button>
 
 

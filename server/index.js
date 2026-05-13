@@ -318,6 +318,12 @@ function validateCommand(command, args) {
     'dig', 'nslookup', 'host',
     // SSL/TLS
     'openssl', 'sslscan', 'sslyze',
+    // Modern web fuzzing
+    'ffuf', 'feroxbuster',
+    // Modern scanning
+    'rustscan',
+    // Active Directory
+    'kerbrute',
     // Misc
     'whois', 'traceroute', 'ping'
   ]);

@@ -117,7 +117,7 @@ export function AuthButton() {
 //             Sign in with GitHub
 //           </Button>
 //           <div className="text-xs text-gray-500 text-center">
-//             {/* Free: 3 messages/day • Premium: Unlimited ($3/month) */}
+//             {/* Free: 3 messages/day • Premium: Unlimited (Rs. 299/month) */}
 //           </div>
 //         </CardContent>
 //       </Card>

@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate, Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
   Shield, 
@@ -57,7 +58,8 @@ const feedItems = [
 // --- COMPONENTS ---
 
 const Navbar = () => {
-  const { signInWithGitHub } = useAuth();
+  const navigate = useNavigate();
+  const { signInWithGitHub, isAuthenticated } = useAuth();
   const [scrolled, setScrolled] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
@@ -107,7 +109,7 @@ const Navbar = () => {
             </button>
           ))}
           <button 
-            onClick={signInWithGitHub}
+            onClick={isAuthenticated ? () => navigate('/selection') : signInWithGitHub}
             className="px-5 py-2 rounded-full border border-cyber-cyan text-cyber-cyan text-sm font-semibold hover:bg-cyber-cyan/10 transition-all neon-border"
           >
             INITIALIZE OPS
@@ -176,6 +178,8 @@ const ThreatTicker = () => {
 };
 
 const HeroSection = ({ onExplore }: { onExplore: () => void }) => {
+  const navigate = useNavigate();
+  const { signInWithGitHub, isAuthenticated } = useAuth();
   return (
     <section id="platform" className="relative min-h-[80vh] flex items-center px-6 pt-12">
       <div className="max-w-7xl mx-auto w-full grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
@@ -190,12 +194,12 @@ const HeroSection = ({ onExplore }: { onExplore: () => void }) => {
             <span className="font-bold text-cyber-cyan">Network</span>
           </h1>
           <p className="text-xl text-white/40 mb-8 max-w-lg leading-relaxed">
-            Autonomous threat detection and neural synchronization across active clusters. <br />
+            Autonomous threat detection, neural synchronization, and tactical training academy. <br />
             Stay Ahead of Cyber Adversaries.
           </p>
           <div className="flex flex-wrap gap-4">
             <button 
-              onClick={onExplore}
+              onClick={isAuthenticated ? () => navigate('/selection') : signInWithGitHub}
               className="px-8 py-4 bg-cyber-cyan text-cyber-dark font-bold rounded-xl hover:bg-cyber-cyan/90 transition-all glow-cyan uppercase tracking-widest text-xs"
             >
               Access Platform
@@ -633,7 +637,7 @@ const PricingSection = () => {
             <div className="text-center mb-10 relative z-10 pt-4">
               <h3 className="text-2xl font-bold text-emerald-400 tracking-wider mb-6 uppercase">Premium</h3>
               <div className="flex justify-center items-center gap-1 mb-2">
-                <span className="text-6xl font-bold text-white">$5</span>
+                <span className="text-6xl font-bold text-white">Rs. 299</span>
                 <span className="text-xl text-slate-400">/mo</span>
               </div>
               <p className="text-sm text-slate-400 mt-4">Advanced Intelligence for Enterprise</p>
@@ -713,8 +717,8 @@ const Footer = () => {
           &copy; 2026 HEX AI. ALL SYSTEMS OPERATIONAL.
         </p>
         <div className="flex gap-8 text-[10px] text-slate-500 uppercase tracking-widest font-mono">
-          <span className="hover:text-white cursor-pointer transition-colors">Privacy Protocol</span>
-          <span className="hover:text-white cursor-pointer transition-colors">Terms of Engagement</span>
+          <Link to="/privacy" className="hover:text-white cursor-pointer transition-colors">Privacy Protocol</Link>
+          <Link to="/terms" className="hover:text-white cursor-pointer transition-colors">Terms of Engagement</Link>
         </div>
       </div>
     </footer>
@@ -722,6 +726,7 @@ const Footer = () => {
 };
 
 export default function LandingPage() {
+  const navigate = useNavigate();
   const { signInWithGitHub } = useAuth();
 
   return (
@@ -743,9 +748,9 @@ export default function LandingPage() {
                   desc: "Digests complex VirusTotal and Shodan data into actionable mitigation strategies instantly." 
                 },
                 { 
-                  icon: Cpu, 
-                  title: "Subdomain Discovery", 
-                  desc: "Uncover hidden attack surfaces by mapping target domains and exposed internal APIs." 
+                  icon: Database, 
+                  title: "Tactical Academy", 
+                  desc: "Master exploit development and defensive operations through high-fidelity simulated labs." 
                 },
                 { 
                   icon: Activity, 

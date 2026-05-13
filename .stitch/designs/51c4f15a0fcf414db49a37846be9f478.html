@@ -1,0 +1,329 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>HEX Platform - CTI Dashboard Manual</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&amp;family=JetBrains+Mono:wght@400;500;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "on-primary-fixed": "#002113",
+                        "inverse-on-surface": "#2f3131",
+                        "error-container": "#93000a",
+                        "inverse-surface": "#e2e2e2",
+                        "on-surface-variant": "#bbcabf",
+                        "surface-variant": "#333535",
+                        "on-tertiary-fixed-variant": "#474649",
+                        "on-error-container": "#ffdad6",
+                        "surface-bright": "#38393a",
+                        "surface-container-highest": "#333535",
+                        "on-primary-container": "#00422b",
+                        "secondary-fixed": "#e4e1e6",
+                        "surface-tint": "#4edea3",
+                        "on-secondary-fixed-variant": "#47464a",
+                        "on-error": "#690005",
+                        "tertiary-container": "#a4a2a5",
+                        "primary": "#4edea3",
+                        "on-secondary-fixed": "#1b1b1e",
+                        "on-primary-fixed-variant": "#005236",
+                        "tertiary-fixed": "#e5e1e4",
+                        "on-primary": "#003824",
+                        "tertiary-fixed-dim": "#c8c6c8",
+                        "surface": "#121414",
+                        "primary-fixed": "#6ffbbe",
+                        "secondary-container": "#47464a",
+                        "outline-variant": "#3c4a42",
+                        "on-secondary": "#303033",
+                        "surface-container-lowest": "#0c0f0f",
+                        "surface-dim": "#121414",
+                        "secondary": "#c8c5ca",
+                        "inverse-primary": "#006c49",
+                        "error": "#ffb4ab",
+                        "tertiary": "#c8c6c8",
+                        "primary-container": "#10b981",
+                        "surface-container": "#1e2020",
+                        "secondary-fixed-dim": "#c8c5ca",
+                        "surface-container-low": "#1a1c1c",
+                        "on-secondary-container": "#b6b4b8",
+                        "on-tertiary": "#313032",
+                        "outline": "#86948a",
+                        "background": "#121414",
+                        "on-tertiary-fixed": "#1c1b1d",
+                        "primary-fixed-dim": "#4edea3",
+                        "on-tertiary-container": "#39393b",
+                        "on-surface": "#e2e2e2",
+                        "on-background": "#e2e2e2",
+                        "surface-container-high": "#282a2b"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    "spacing": {
+                        "xl": "40px",
+                        "lg": "24px",
+                        "xs": "4px",
+                        "md": "16px",
+                        "unit": "4px",
+                        "gutter": "12px",
+                        "sm": "8px"
+                    },
+                    "fontFamily": {
+                        "h2": ["Inter"],
+                        "meta-mono": ["JetBrains Mono"],
+                        "h1": ["Inter"],
+                        "body-sm": ["Inter"],
+                        "body-base": ["Inter"],
+                        "stat-lg": ["JetBrains Mono"],
+                        "code-block": ["JetBrains Mono"]
+                    },
+                    "fontSize": {
+                        "h2": ["18px", {"lineHeight": "24px", "letterSpacing": "-0.01em", "fontWeight": "600"}],
+                        "meta-mono": ["11px", {"lineHeight": "14px", "letterSpacing": "0.02em", "fontWeight": "500"}],
+                        "h1": ["24px", {"lineHeight": "32px", "letterSpacing": "-0.02em", "fontWeight": "600"}],
+                        "body-sm": ["12px", {"lineHeight": "16px", "fontWeight": "400"}],
+                        "body-base": ["14px", {"lineHeight": "20px", "fontWeight": "400"}],
+                        "stat-lg": ["20px", {"lineHeight": "24px", "fontWeight": "700"}],
+                        "code-block": ["13px", {"lineHeight": "20px", "fontWeight": "400"}]
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+        /* Custom scrollbar for technical feel */
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar-track { background: #0c0f0f; border-left: 1px solid #3c4a42; }
+        ::-webkit-scrollbar-thumb { background: #3c4a42; border: 1px solid #0c0f0f; }
+        ::-webkit-scrollbar-thumb:hover { background: #4edea3; }
+        .material-symbols-outlined { font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24; }
+    </style>
+</head>
+<body class="bg-background text-on-background font-body-base text-body-base antialiased min-h-screen flex flex-col overflow-x-hidden selection:bg-primary selection:text-on-primary">
+<!-- TopNavBar -->
+<nav class="bg-surface-container-lowest sticky top-0 z-50 border-b border-outline-variant flex justify-between items-center w-full px-4 h-14 shrink-0 transition-colors duration-150 ease-in-out">
+<div class="flex items-center gap-lg">
+<span class="font-stat-lg text-stat-lg text-primary tracking-tighter">HEX_PLATFORM</span>
+<div class="hidden md:flex gap-1 h-full items-center pt-1">
+<!-- Active Item -->
+<a class="font-body-sm text-body-sm uppercase tracking-widest text-primary border-b-2 border-primary h-14 flex items-center px-2 hover:text-primary hover:bg-surface-container-low transition-colors duration-150 ease-in-out" href="#">Docs</a>
+<!-- Inactive Items -->
+<a class="font-body-sm text-body-sm uppercase tracking-widest text-on-surface-variant border-b-2 border-transparent h-14 flex items-center px-2 hover:text-primary hover:bg-surface-container-low transition-colors duration-150 ease-in-out" href="#">API</a>
+<a class="font-body-sm text-body-sm uppercase tracking-widest text-on-surface-variant border-b-2 border-transparent h-14 flex items-center px-2 hover:text-primary hover:bg-surface-container-low transition-colors duration-150 ease-in-out" href="#">Community</a>
+<a class="font-body-sm text-body-sm uppercase tracking-widest text-on-surface-variant border-b-2 border-transparent h-14 flex items-center px-2 hover:text-primary hover:bg-surface-container-low transition-colors duration-150 ease-in-out" href="#">Support</a>
+</div>
+</div>
+<div class="flex items-center gap-sm">
+<button class="p-2 text-on-surface-variant hover:text-primary transition-colors">
+<span class="material-symbols-outlined text-lg" data-icon="search">search</span>
+</button>
+<button class="p-2 text-on-surface-variant hover:text-primary transition-colors">
+<span class="material-symbols-outlined text-lg" data-icon="settings">settings</span>
+</button>
+<button class="p-2 text-on-surface-variant hover:text-primary transition-colors">
+<span class="material-symbols-outlined text-lg" data-icon="notifications">notifications</span>
+</button>
+<div class="w-8 h-8 rounded border border-outline-variant overflow-hidden ml-2 bg-surface-container-high">
+<img alt="User profile" class="w-full h-full object-cover" data-alt="A minimal, dark-themed user avatar featuring a neon green monogram on a charcoal background, reflecting a cyber-security operative identity." src="https://lh3.googleusercontent.com/aida-public/AB6AXuDd1DQbQ-05oNDvKzYgDzoFeQ3sO6eclpu5EhndZIcxEFmBue3Ya4qEj3bhh8HTm8rS6_sgN0e4y7bao6rpGiy233HFmqamRV-O9bSpPr8HBdlxJVFE6RnA3j-cHo0dK7I1Ba3zUVlpKAoOHxsCYMOrhPmIVZzgMpRpw7BIf5VshMSp2ydXJuDcSLCvr13EIMLFP5YSlveZbmI_TOV_0xV8eupWUnCqKsyL1Zkl7mXPUHZKTUhJg3pq39LGKvL0LbU1QYV59g9AX6w"/>
+</div>
+</div>
+</nav>
+<div class="flex flex-1 relative w-full max-w-[1600px] mx-auto">
+<!-- SideNavBar -->
+<aside class="hidden md:flex flex-col h-[calc(100vh-56px)] sticky top-14 w-64 border-r border-outline-variant bg-surface-container shrink-0 transition-all duration-75 overflow-y-auto">
+<div class="p-4 border-b border-outline-variant flex items-center gap-3">
+<div class="w-8 h-8 bg-surface-container-highest border border-outline-variant flex items-center justify-center">
+<span class="material-symbols-outlined text-primary" data-icon="hexagon">hexagon</span>
+</div>
+<div>
+<div class="font-meta-mono text-meta-mono text-primary font-bold uppercase">HEX_DOCS</div>
+<div class="font-meta-mono text-[9px] text-on-surface-variant tracking-widest uppercase mt-0.5">v2.4.0-stable</div>
+</div>
+</div>
+<nav class="flex-1 py-4 flex flex-col gap-1 px-2">
+<div class="font-meta-mono text-[9px] text-on-surface-variant px-3 mb-2 uppercase tracking-widest">Navigation</div>
+<!-- Inactive -->
+<a class="flex items-center gap-3 px-3 py-2 text-on-surface-variant hover:bg-surface hover:text-on-surface transition-all duration-75 group border-r-2 border-transparent" href="#">
+<span class="material-symbols-outlined text-[18px] group-hover:text-primary transition-colors" data-icon="rocket_launch">rocket_launch</span>
+<span class="font-meta-mono text-meta-mono uppercase">Getting Started</span>
+</a>
+<!-- Active -->
+<a class="flex items-center gap-3 px-3 py-2 bg-primary/10 text-primary border-r-2 border-primary transition-all duration-75" href="#">
+<span class="material-symbols-outlined text-[18px]" data-icon="dashboard" data-weight="fill" style="font-variation-settings: 'FILL' 1;">dashboard</span>
+<span class="font-meta-mono text-meta-mono uppercase font-bold">CTI Dashboard</span>
+</a>
+<!-- Inactive -->
+<a class="flex items-center gap-3 px-3 py-2 text-on-surface-variant hover:bg-surface hover:text-on-surface transition-all duration-75 group border-r-2 border-transparent" href="#">
+<span class="material-symbols-outlined text-[18px] group-hover:text-primary transition-colors" data-icon="school">school</span>
+<span class="font-meta-mono text-meta-mono uppercase">Academy</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2 text-on-surface-variant hover:bg-surface hover:text-on-surface transition-all duration-75 group border-r-2 border-transparent" href="#">
+<span class="material-symbols-outlined text-[18px] group-hover:text-primary transition-colors" data-icon="payments">payments</span>
+<span class="font-meta-mono text-meta-mono uppercase">Billing</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2 text-on-surface-variant hover:bg-surface hover:text-on-surface transition-all duration-75 group border-r-2 border-transparent" href="#">
+<span class="material-symbols-outlined text-[18px] group-hover:text-primary transition-colors" data-icon="quiz">quiz</span>
+<span class="font-meta-mono text-meta-mono uppercase">FAQ</span>
+</a>
+</nav>
+<div class="mt-auto border-t border-outline-variant p-2 flex flex-col gap-1">
+<a class="flex items-center gap-3 px-3 py-2 text-on-surface-variant hover:bg-surface hover:text-on-surface transition-all duration-75 group" href="#">
+<span class="material-symbols-outlined text-[16px] group-hover:text-primary" data-icon="sensors">sensors</span>
+<span class="font-meta-mono text-meta-mono uppercase">System Status</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2 text-on-surface-variant hover:bg-surface hover:text-on-surface transition-all duration-75 group" href="#">
+<span class="material-symbols-outlined text-[16px] group-hover:text-primary" data-icon="terminal">terminal</span>
+<span class="font-meta-mono text-meta-mono uppercase">Terminal</span>
+</a>
+</div>
+</aside>
+<!-- Main Content Area -->
+<main class="flex-1 p-6 md:p-10 flex flex-col lg:flex-row gap-xl items-start min-w-0">
+<!-- Article Canvas -->
+<article class="flex-1 max-w-4xl w-full flex flex-col gap-8">
+<header class="border-b border-outline-variant pb-6 flex flex-col gap-3">
+<div class="flex items-center gap-2 text-on-surface-variant font-meta-mono text-meta-mono uppercase tracking-widest">
+<span>Hex_Docs</span>
+<span class="material-symbols-outlined text-[14px]">chevron_right</span>
+<span class="text-primary">CTI Dashboard</span>
+</div>
+<h1 class="font-h1 text-h1 text-on-surface tracking-tight">Cyber Threat Intelligence Operations</h1>
+<p class="font-body-base text-body-base text-on-surface-variant max-w-2xl mt-2 leading-relaxed">
+                        The CTI Dashboard is the primary operational surface for threat hunting, telemetry aggregation, and incident triage. This guide details the structural layout and interactive protocols required for effective deployment.
+                    </p>
+</header>
+<!-- Section: Warning Callout -->
+<div class="border-l-[3px] border-error bg-error-container/10 p-md flex gap-4 items-start rounded-r">
+<span class="material-symbols-outlined text-error mt-0.5" data-icon="warning">warning</span>
+<div class="flex flex-col gap-1">
+<span class="font-meta-mono text-meta-mono text-error uppercase font-bold tracking-widest">[CRITICAL_WARNING]</span>
+<p class="font-body-sm text-body-sm text-on-surface">
+                            Direct execution of containment protocols via the CTI matrix requires elevated Level 4 authorization. Unsanctioned isolation of core nodes may result in cascading network failure. Verify node dependency before isolation.
+                        </p>
+</div>
+</div>
+<!-- Section: Architecture -->
+<section class="flex flex-col gap-4 mt-4">
+<h2 class="font-h2 text-h2 text-on-surface flex items-center gap-2">
+<span class="w-1.5 h-1.5 bg-primary block"></span>
+                        Telemetry Ingestion Pipeline
+                    </h2>
+<p class="font-body-base text-body-base text-on-surface-variant leading-relaxed">
+                        Data flows from distributed sensors into the central Hex Core. To manually query the ingestion queue, utilize the integrated terminal. The query structure requires precise entity targeting.
+                    </p>
+<div class="bg-surface-container-highest border border-outline-variant rounded mt-2 relative overflow-hidden group">
+<div class="bg-surface-container-lowest px-4 py-2 border-b border-outline-variant flex justify-between items-center">
+<span class="font-meta-mono text-[10px] text-on-surface-variant uppercase tracking-widest">Bash // Terminal</span>
+<button class="text-on-surface-variant hover:text-primary transition-colors"><span class="material-symbols-outlined text-[14px]" data-icon="content_copy">content_copy</span></button>
+</div>
+<pre class="p-4 overflow-x-auto"><code class="font-code-block text-code-block text-on-surface">hex-cli query --stream "live" \
+  --filter "severity&gt;=HIGH" \
+  --output format=json \
+  | jq '.payload.indicators'</code></pre>
+</div>
+</section>
+<!-- Section: Asymmetric Matrix Grid -->
+<section class="flex flex-col gap-4 mt-6">
+<h2 class="font-h2 text-h2 text-on-surface flex items-center gap-2">
+<span class="w-1.5 h-1.5 bg-primary block"></span>
+                        Threat Matrix Breakdown
+                    </h2>
+<div class="grid grid-cols-1 md:grid-cols-12 gap-4 mt-2">
+<!-- Left Data Block -->
+<div class="md:col-span-4 bg-surface-container border border-outline-variant p-4 flex flex-col gap-4 relative">
+<div class="absolute top-0 right-0 w-3 h-3 border-l border-b border-outline-variant bg-surface-container-highest"></div>
+<span class="font-meta-mono text-meta-mono text-on-surface-variant uppercase tracking-widest">Active Vectors</span>
+<div class="text-4xl font-stat-lg text-on-surface">1,492</div>
+<div class="flex gap-2">
+<span class="px-1.5 py-0.5 border border-error text-error font-meta-mono text-[9px] uppercase">12 Critical</span>
+<span class="px-1.5 py-0.5 border border-primary text-primary font-meta-mono text-[9px] uppercase">Stable</span>
+</div>
+</div>
+<!-- Right Data Table Block -->
+<div class="md:col-span-8 bg-surface-container border border-outline-variant overflow-hidden flex flex-col">
+<div class="px-4 py-3 border-b border-outline-variant bg-surface-container-low flex justify-between items-center">
+<span class="font-meta-mono text-meta-mono text-on-surface-variant uppercase tracking-widest">Recent Anomalies</span>
+<span class="material-symbols-outlined text-[16px] text-on-surface-variant" data-icon="tune">tune</span>
+</div>
+<div class="overflow-x-auto">
+<table class="w-full text-left font-body-sm text-body-sm border-collapse">
+<thead>
+<tr class="bg-surface-container-highest">
+<th class="font-meta-mono text-[10px] text-on-surface-variant uppercase tracking-widest px-4 py-2 font-normal border-b border-outline-variant">ID_HASH</th>
+<th class="font-meta-mono text-[10px] text-on-surface-variant uppercase tracking-widest px-4 py-2 font-normal border-b border-outline-variant">Source IP</th>
+<th class="font-meta-mono text-[10px] text-on-surface-variant uppercase tracking-widest px-4 py-2 font-normal border-b border-outline-variant text-right">Confidence</th>
+</tr>
+</thead>
+<tbody class="font-code-block text-[12px]">
+<tr class="border-b border-outline-variant hover:bg-surface-container-high transition-colors">
+<td class="px-4 py-2 text-primary">0x8F9A...</td>
+<td class="px-4 py-2 text-on-surface">192.168.1.104</td>
+<td class="px-4 py-2 text-right text-error">98.4%</td>
+</tr>
+<tr class="border-b border-outline-variant hover:bg-surface-container-high transition-colors">
+<td class="px-4 py-2 text-primary">0x3B2C...</td>
+<td class="px-4 py-2 text-on-surface">10.0.45.22</td>
+<td class="px-4 py-2 text-right text-on-surface-variant">45.1%</td>
+</tr>
+<tr class="hover:bg-surface-container-high transition-colors">
+<td class="px-4 py-2 text-primary">0x11DA...</td>
+<td class="px-4 py-2 text-on-surface">172.16.0.9</td>
+<td class="px-4 py-2 text-right text-on-surface-variant">12.0%</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+</div>
+</section>
+<div class="h-16"></div> <!-- Bottom spacing -->
+</article>
+<!-- Table of Contents (Right Aside) -->
+<aside class="hidden lg:flex flex-col w-56 shrink-0 sticky top-24 border-l border-outline-variant pl-4">
+<span class="font-meta-mono text-meta-mono text-on-surface uppercase tracking-widest mb-4">On This Page</span>
+<nav class="flex flex-col gap-2 relative">
+<div class="absolute left-[-17px] top-2 bottom-2 w-px bg-outline-variant hidden"></div>
+<a class="font-body-sm text-body-sm text-primary flex items-center relative" href="#">
+<span class="absolute left-[-21px] w-1.5 h-1.5 bg-primary"></span>
+                        Operations Overview
+                    </a>
+<a class="font-body-sm text-body-sm text-on-surface-variant hover:text-on-surface transition-colors pl-2" href="#">
+                        Telemetry Ingestion
+                    </a>
+<a class="font-body-sm text-body-sm text-on-surface-variant hover:text-on-surface transition-colors pl-2" href="#">
+                        Threat Matrix Breakdown
+                    </a>
+<a class="font-body-sm text-body-sm text-on-surface-variant hover:text-on-surface transition-colors pl-2 mt-2 border-t border-outline-variant pt-2" href="#">
+                        Containment Protocols
+                    </a>
+</nav>
+</aside>
+</main>
+</div>
+<!-- Footer -->
+<footer class="bg-surface-container-lowest border-t border-outline-variant w-full mt-auto relative z-10">
+<div class="max-w-[1600px] mx-auto flex flex-col md:flex-row justify-between items-center px-6 py-3 w-full gap-4">
+<span class="font-meta-mono text-meta-mono tracking-tight text-primary">© 2024 HEX PLATFORM // ENCRYPTED CONNECTION</span>
+<div class="flex items-center gap-4 md:gap-6">
+<a class="font-meta-mono text-meta-mono text-on-surface-variant hover:text-primary transition-colors cursor-pointer flex items-center gap-1.5" href="#">
+<span class="w-1.5 h-1.5 rounded-full bg-primary animate-pulse"></span>
+                    System Status: Operational
+                </a>
+<a class="font-meta-mono text-meta-mono text-on-surface-variant hover:text-primary transition-colors cursor-pointer" href="#">v2.4.0</a>
+<a class="font-meta-mono text-meta-mono text-on-surface-variant hover:text-primary transition-colors cursor-pointer" href="#">Security Policy</a>
+<a class="font-meta-mono text-meta-mono text-on-surface-variant hover:text-primary transition-colors cursor-pointer" href="#">Legal</a>
+</div>
+</div>
+</footer>
+</body></html>

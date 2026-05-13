@@ -18,8 +18,8 @@ export default function AuthCallback() {
         }
 
         if (data.session) {
-          // Successfully authenticated, redirect to home
-          navigate('/');
+          // Successfully authenticated, redirect to selection page
+          navigate('/selection');
         } else {
           // No session, redirect to home
           navigate('/');

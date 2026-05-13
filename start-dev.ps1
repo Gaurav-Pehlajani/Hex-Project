@@ -13,17 +13,9 @@ Write-Host ""
 Write-Host "Checking environment files..." -ForegroundColor Yellow
 
 $rootEnvExists = Test-Path ".env"
-$mcpAdapterEnvExists = Test-Path "server\mcp-adapter\.env"
-
 if (-not $rootEnvExists) {
     Write-Host "WARNING: .env file not found in root directory" -ForegroundColor Red
     Write-Host "Please create .env with your Supabase credentials" -ForegroundColor Yellow
-}
-
-if (-not $mcpAdapterEnvExists) {
-    Write-Host "WARNING: server/mcp-adapter/.env file not found" -ForegroundColor Red
-    Write-Host "Please create it with your DeepSeek API key" -ForegroundColor Yellow
-    Write-Host "See docs/HYBRID_DEPLOYMENT_STRATEGY.md for details" -ForegroundColor Yellow
 }
 
 Write-Host ""
@@ -62,7 +54,7 @@ Write-Host "Starting services..." -ForegroundColor Green
 Write-Host ""
 
 # Kill any processes using our ports
-$ports = @(8080, 8081, 8083)
+$ports = @(8080, 8081)
 foreach ($port in $ports) {
     $process = Get-NetTCPConnection -LocalPort $port -ErrorAction SilentlyContinue | 
                 Select-Object -ExpandProperty OwningProcess -ErrorAction SilentlyContinue
@@ -76,18 +68,8 @@ foreach ($port in $ports) {
 
 Write-Host ""
 
-# Start MCP Adapter (Terminal 1)
-Write-Host "[1/3] Starting MCP Adapter (Port 8083)..." -ForegroundColor Magenta
-Start-Process powershell -ArgumentList @(
-    "-NoExit",
-    "-Command",
-    "cd '$PWD\server\mcp-adapter'; `$host.ui.RawUI.WindowTitle = 'Hex AI - MCP Adapter'; Write-Host 'MCP ADAPTER' -ForegroundColor Magenta; npm start"
-)
-
-Start-Sleep -Seconds 2
-
-# Start Tool Execution Server (Terminal 2)
-Write-Host "[2/3] Starting Tool Execution Server (Port 8081)..." -ForegroundColor Blue
+# Start Tool Execution Server (Terminal 1)
+Write-Host "[1/2] Starting Tool Execution Server (Port 8081)..." -ForegroundColor Blue
 Start-Process powershell -ArgumentList @(
     "-NoExit",
     "-Command",
@@ -96,8 +78,8 @@ Start-Process powershell -ArgumentList @(
 
 Start-Sleep -Seconds 2
 
-# Start Frontend (Terminal 3)
-Write-Host "[3/3] Starting Frontend (Port 8080)..." -ForegroundColor Green
+# Start Frontend (Terminal 2)
+Write-Host "[2/2] Starting Frontend (Port 8080)..." -ForegroundColor Green
 Start-Process powershell -ArgumentList @(
     "-NoExit",
     "-Command",
@@ -111,7 +93,6 @@ Write-Host "================================" -ForegroundColor Cyan
 Write-Host ""
 Write-Host "Services:" -ForegroundColor White
 Write-Host "  Frontend:          http://localhost:8080" -ForegroundColor Cyan
-Write-Host "  MCP Adapter:       http://localhost:8083" -ForegroundColor Magenta
 Write-Host "  Tool Server:       ws://localhost:8081" -ForegroundColor Blue
 Write-Host ""
 Write-Host "Docker:" -ForegroundColor White

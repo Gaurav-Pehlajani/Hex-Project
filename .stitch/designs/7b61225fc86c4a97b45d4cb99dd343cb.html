@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>HEX Academy Dashboard</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&amp;family=JetBrains+Mono:wght@400;500;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "surface-variant": "#333535",
+                        "secondary-container": "#47464a",
+                        "surface-dim": "#121414",
+                        "surface-bright": "#38393a",
+                        "tertiary": "#c8c6c8",
+                        "secondary": "#c8c5ca",
+                        "on-error-container": "#ffdad6",
+                        "primary-fixed": "#6ffbbe",
+                        "secondary-fixed-dim": "#c8c5ca",
+                        "on-tertiary-container": "#39393b",
+                        "primary": "#4edea3",
+                        "outline-variant": "#3c4a42",
+                        "error-container": "#93000a",
+                        "on-tertiary-fixed-variant": "#474649",
+                        "on-secondary-container": "#b6b4b8",
+                        "surface-tint": "#4edea3",
+                        "outline": "#86948a",
+                        "secondary-fixed": "#e4e1e6",
+                        "on-tertiary-fixed": "#1c1b1d",
+                        "on-primary-fixed": "#002113",
+                        "on-surface-variant": "#bbcabf",
+                        "surface": "#121414",
+                        "on-tertiary": "#313032",
+                        "on-primary-fixed-variant": "#005236",
+                        "on-primary-container": "#00422b",
+                        "inverse-on-surface": "#2f3131",
+                        "surface-container-lowest": "#0c0f0f",
+                        "primary-container": "#10b981",
+                        "surface-container-high": "#282a2b",
+                        "background": "#121414",
+                        "tertiary-container": "#a4a2a5",
+                        "surface-container": "#1e2020",
+                        "tertiary-fixed": "#e5e1e4",
+                        "surface-container-highest": "#333535",
+                        "error": "#ffb4ab",
+                        "tertiary-fixed-dim": "#c8c6c8",
+                        "on-secondary-fixed-variant": "#47464a",
+                        "on-secondary": "#303033",
+                        "on-primary": "#003824",
+                        "inverse-primary": "#006c49",
+                        "on-secondary-fixed": "#1b1b1e",
+                        "on-surface": "#e2e2e2",
+                        "primary-fixed-dim": "#4edea3",
+                        "on-background": "#e2e2e2",
+                        "inverse-surface": "#e2e2e2",
+                        "on-error": "#690005",
+                        "surface-container-low": "#1a1c1c"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    "spacing": {
+                        "md": "16px",
+                        "xl": "40px",
+                        "sm": "8px",
+                        "gutter": "12px",
+                        "xs": "4px",
+                        "unit": "4px",
+                        "lg": "24px"
+                    },
+                    "fontFamily": {
+                        "stat-lg": ["JetBrains Mono"],
+                        "body-sm": ["Inter"],
+                        "h1": ["Inter"],
+                        "meta-mono": ["JetBrains Mono"],
+                        "code-block": ["JetBrains Mono"],
+                        "h2": ["Inter"],
+                        "body-base": ["Inter"]
+                    },
+                    "fontSize": {
+                        "stat-lg": ["20px", { "lineHeight": "24px", "fontWeight": "700" }],
+                        "body-sm": ["12px", { "lineHeight": "16px", "fontWeight": "400" }],
+                        "h1": ["24px", { "lineHeight": "32px", "letterSpacing": "-0.02em", "fontWeight": "600" }],
+                        "meta-mono": ["11px", { "lineHeight": "14px", "letterSpacing": "0.02em", "fontWeight": "500" }],
+                        "code-block": ["13px", { "lineHeight": "20px", "fontWeight": "400" }],
+                        "h2": ["18px", { "lineHeight": "24px", "letterSpacing": "-0.01em", "fontWeight": "600" }],
+                        "body-base": ["14px", { "lineHeight": "20px", "fontWeight": "400" }]
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+        body { background-color: #09090B; color: #e2e2e2; }
+        .brutalist-border { border: 1px solid rgba(255,255,255,0.1); }
+        .hacker-accent { color: #10B981; }
+        .hacker-bg { background-color: #10B981; }
+        .hacker-border { border-color: #10B981; }
+    </style>
+</head>
+<body class="font-body-base overflow-hidden flex h-screen w-screen">
+<!-- SideNavBar -->
+<nav class="fixed left-0 top-12 bottom-0 z-40 flex flex-col items-center bg-[#18181B] dark:bg-zinc-900 border-r border-white/10 w-16">
+<div class="py-4 w-full flex flex-col items-center border-b border-white/10 mb-4">
+<span class="text-[#10B981] font-bold text-[10px] font-mono uppercase">HEX_OP</span>
+<span class="text-zinc-500 text-[8px] font-mono mt-1">V2.0.4</span>
+</div>
+<a class="bg-zinc-800 text-[#10B981] border-l-2 border-[#10B981] w-full flex flex-col items-center py-4 transition-all duration-75 group relative" href="#">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">space_dashboard</span>
+<span class="font-meta-mono text-[9px] mt-1 opacity-0 group-hover:opacity-100 absolute left-full ml-2 bg-surface p-1 rounded brutalist-border whitespace-nowrap">Dashboard</span>
+</a>
+<a class="text-zinc-600 w-full flex flex-col items-center py-4 hover:bg-zinc-800/50 hover:text-emerald-400 transition-all duration-75 group relative" href="#">
+<span class="material-symbols-outlined">terminal</span>
+<span class="font-meta-mono text-[9px] mt-1 opacity-0 group-hover:opacity-100 absolute left-full ml-2 bg-surface p-1 rounded brutalist-border whitespace-nowrap">Modules</span>
+</a>
+<a class="text-zinc-600 w-full flex flex-col items-center py-4 hover:bg-zinc-800/50 hover:text-emerald-400 transition-all duration-75 group relative" href="#">
+<span class="material-symbols-outlined">biotech</span>
+<span class="font-meta-mono text-[9px] mt-1 opacity-0 group-hover:opacity-100 absolute left-full ml-2 bg-surface p-1 rounded brutalist-border whitespace-nowrap">Labs</span>
+</a>
+<a class="text-zinc-600 w-full flex flex-col items-center py-4 hover:bg-zinc-800/50 hover:text-emerald-400 transition-all duration-75 group relative" href="#">
+<span class="material-symbols-outlined">equalizer</span>
+<span class="font-meta-mono text-[9px] mt-1 opacity-0 group-hover:opacity-100 absolute left-full ml-2 bg-surface p-1 rounded brutalist-border whitespace-nowrap">Leaderboard</span>
+</a>
+<div class="mt-auto mb-4 w-full flex flex-col items-center">
+<a class="text-zinc-600 w-full flex flex-col items-center py-4 hover:bg-zinc-800/50 hover:text-emerald-400 transition-all duration-75 group relative" href="#">
+<span class="material-symbols-outlined">account_box</span>
+<span class="font-meta-mono text-[9px] mt-1 opacity-0 group-hover:opacity-100 absolute left-full ml-2 bg-surface p-1 rounded brutalist-border whitespace-nowrap">Profile</span>
+</a>
+</div>
+</nav>
+<!-- Main Content Wrapper -->
+<div class="flex-1 flex flex-col ml-16 relative">
+<!-- TopAppBar -->
+<header class="flex justify-between items-center w-full px-4 h-12 bg-[#18181B] dark:bg-zinc-900 border-b border-white/10 absolute top-0 z-50">
+<div class="flex items-center gap-4">
+<span class="text-xl font-black italic tracking-widest text-[#10B981] dark:text-emerald-500">HEX ACADEMY</span>
+<div class="h-4 w-[1px] bg-white/10 mx-2"></div>
+<div class="flex items-center gap-2 text-[#10B981] dark:text-emerald-500 font-mono uppercase tracking-tighter text-xs">
+<span class="material-symbols-outlined text-[14px]">sensors</span>
+<span>OPERATIONAL STATUS: ONLINE</span>
+</div>
+</div>
+<div class="flex items-center gap-md">
+<div class="flex flex-col items-end">
+<span class="font-meta-mono text-on-surface">AGENT: gaurav_p</span>
+<span class="font-meta-mono text-zinc-500">LEVEL 14</span>
+</div>
+<div class="w-32 h-2 bg-surface-variant rounded-full overflow-hidden brutalist-border">
+<div class="h-full bg-primary-container w-[70%]"></div>
+</div>
+<div class="flex items-center gap-2 ml-4">
+<span class="font-mono uppercase tracking-tighter text-xs text-zinc-400">XP: 14,200</span>
+<span class="font-mono uppercase tracking-tighter text-xs text-zinc-400">RANK: ELITE</span>
+</div>
+<div class="flex gap-2 ml-2">
+<button class="text-zinc-500 hover:text-[#10B981] transition-colors duration-150 ease-in-out p-1"><span class="material-symbols-outlined">search</span></button>
+<button class="text-zinc-500 hover:text-[#10B981] transition-colors duration-150 ease-in-out p-1"><span class="material-symbols-outlined">settings</span></button>
+</div>
+</div>
+</header>
+<!-- Canvas Area -->
+<main class="flex-1 mt-12 mb-8 p-lg overflow-y-auto bg-surface-container-lowest">
+<!-- Stats Row -->
+<section class="grid grid-cols-4 gap-md mb-lg">
+<!-- Stat Card 1 -->
+<div class="bg-surface p-md brutalist-border relative overflow-hidden group hover:border-[#10B981] transition-colors">
+<div class="absolute top-0 right-0 w-8 h-8 border-t border-r border-white/20"></div>
+<div class="flex justify-between items-start mb-2">
+<span class="font-meta-mono text-zinc-500 uppercase">Total XP</span>
+<span class="material-symbols-outlined text-[#10B981] text-[16px]">bolt</span>
+</div>
+<div class="font-stat-lg text-on-surface">14,200</div>
+<div class="mt-2 h-1 w-full bg-surface-variant"><div class="h-full bg-[#10B981] w-[75%]"></div></div>
+</div>
+<!-- Stat Card 2 -->
+<div class="bg-surface p-md brutalist-border relative overflow-hidden group hover:border-[#10B981] transition-colors">
+<div class="absolute bottom-0 left-0 w-8 h-8 border-b border-l border-white/20"></div>
+<div class="flex justify-between items-start mb-2">
+<span class="font-meta-mono text-zinc-500 uppercase">Modules Completed</span>
+<span class="material-symbols-outlined text-zinc-400 text-[16px]">terminal</span>
+</div>
+<div class="font-stat-lg text-on-surface">24</div>
+<div class="mt-2 font-meta-mono text-zinc-500 text-[10px]">+2 THIS WEEK</div>
+</div>
+<!-- Stat Card 3 -->
+<div class="bg-surface p-md brutalist-border relative overflow-hidden group hover:border-[#10B981] transition-colors">
+<div class="flex justify-between items-start mb-2">
+<span class="font-meta-mono text-zinc-500 uppercase">Streak</span>
+<span class="material-symbols-outlined text-[#10B981] text-[16px]">local_fire_department</span>
+</div>
+<div class="font-stat-lg text-on-surface">12 DAYS</div>
+<div class="mt-2 flex gap-1">
+<div class="h-2 w-4 bg-[#10B981]"></div>
+<div class="h-2 w-4 bg-[#10B981]"></div>
+<div class="h-2 w-4 bg-[#10B981]"></div>
+<div class="h-2 w-4 bg-[#10B981]"></div>
+<div class="h-2 w-4 bg-surface-variant"></div>
+</div>
+</div>
+<!-- Stat Card 4 -->
+<div class="bg-surface p-md brutalist-border relative overflow-hidden group hover:border-[#10B981] transition-colors">
+<div class="absolute top-0 left-0 w-2 h-full bg-[#10B981]/20 group-hover:bg-[#10B981] transition-colors"></div>
+<div class="flex justify-between items-start mb-2 pl-2">
+<span class="font-meta-mono text-zinc-500 uppercase">Rank</span>
+<span class="material-symbols-outlined text-zinc-400 text-[16px]">public</span>
+</div>
+<div class="font-stat-lg text-on-surface pl-2">#402 GLOBAL</div>
+<div class="mt-2 pl-2 font-meta-mono text-[#10B981] text-[10px]">TOP 5%</div>
+</div>
+</section>
+<!-- Activity Section -->
+<section class="grid grid-cols-12 gap-md">
+<!-- Telemetry Card (Left) -->
+<div class="col-span-8 bg-surface p-lg brutalist-border relative flex flex-col">
+<div class="absolute top-2 right-2 flex gap-1">
+<div class="w-1 h-1 bg-[#10B981]"></div>
+<div class="w-1 h-1 bg-[#10B981]"></div>
+<div class="w-1 h-1 bg-zinc-600"></div>
+</div>
+<div class="font-meta-mono text-zinc-500 mb-6 uppercase border-b border-white/10 pb-2">SYS_MSG: CONTINUE LEARNING</div>
+<div class="flex items-center gap-xl flex-1">
+<div class="relative w-32 h-32 flex-shrink-0 flex items-center justify-center">
+<!-- Fake SVG Ring -->
+<svg class="absolute inset-0 w-full h-full transform -rotate-90">
+<circle cx="64" cy="64" fill="none" r="60" stroke="rgba(255,255,255,0.1)" stroke-width="4"></circle>
+<circle cx="64" cy="64" fill="none" r="60" stroke="#10B981" stroke-dasharray="377" stroke-dashoffset="132" stroke-width="4"></circle>
+</svg>
+<div class="font-stat-lg text-[#10B981]">65%</div>
+</div>
+<div class="flex flex-col justify-center flex-1">
+<h2 class="font-h1 text-on-surface mb-2">Network Enumeration I</h2>
+<p class="font-body-base text-zinc-400 mb-6 max-w-md">Master the art of passive and active reconnaissance. Identify open ports, services, and potential vulnerabilities in target networks.</p>
+<button class="bg-[#10B981] text-black font-code-block uppercase px-4 py-2 rounded-DEFAULT w-fit hover:bg-emerald-400 transition-colors flex items-center gap-2 font-bold">
+<span class="material-symbols-outlined text-[18px]">play_arrow</span>
+                                RESUME OPERATION
+                            </button>
+</div>
+</div>
+</div>
+<!-- Daily Challenges (Right) -->
+<div class="col-span-4 bg-surface p-md brutalist-border flex flex-col">
+<div class="flex justify-between items-center mb-4 border-b border-white/10 pb-2">
+<span class="font-meta-mono text-zinc-500 uppercase">DAILY CHALLENGES</span>
+<span class="font-meta-mono text-[#10B981]">[0/3]</span>
+</div>
+<div class="flex flex-col gap-sm flex-1">
+<!-- Task 1 -->
+<div class="p-sm brutalist-border hover:bg-surface-variant transition-colors flex items-start gap-3 group cursor-pointer">
+<div class="w-4 h-4 border border-zinc-500 mt-1 flex-shrink-0 group-hover:border-[#10B981]"></div>
+<div>
+<div class="font-meta-mono text-on-surface mb-1">Complete 5 flashcards</div>
+<div class="font-meta-mono text-zinc-600 text-[9px] uppercase">Reward: +50 XP</div>
+</div>
+</div>
+<!-- Task 2 -->
+<div class="p-sm brutalist-border hover:bg-surface-variant transition-colors flex items-start gap-3 group cursor-pointer">
+<div class="w-4 h-4 border border-zinc-500 mt-1 flex-shrink-0 group-hover:border-[#10B981]"></div>
+<div>
+<div class="font-meta-mono text-on-surface mb-1">Compromise 1 Lab</div>
+<div class="font-meta-mono text-zinc-600 text-[9px] uppercase">Reward: +200 XP, 1 Badge</div>
+</div>
+</div>
+<!-- Task 3 -->
+<div class="p-sm brutalist-border hover:bg-surface-variant transition-colors flex items-start gap-3 group cursor-pointer">
+<div class="w-4 h-4 border border-zinc-500 mt-1 flex-shrink-0 group-hover:border-[#10B981]"></div>
+<div>
+<div class="font-meta-mono text-on-surface mb-1">Participate in Intel Forum</div>
+<div class="font-meta-mono text-zinc-600 text-[9px] uppercase">Reward: +25 XP</div>
+</div>
+</div>
+</div>
+</div>
+</section>
+</main>
+<!-- Footer -->
+<footer class="fixed bottom-0 left-16 right-0 h-8 flex items-center px-4 justify-between bg-[#09090B] dark:bg-black border-t border-white/5 z-50">
+<div class="font-mono text-[9px] uppercase tracking-widest text-zinc-500 overflow-hidden whitespace-nowrap flex-1 flex">
+<span class="text-[#10B981] mr-4 shrink-0">TELEMETRY_LOG //</span>
+<div class="animate-pulse-subtle flex gap-8">
+<span>[12:45] user_x completed SQL Injection Lab</span>
+<span>[12:43] neo_01 joined Lab #404</span>
+<span class="text-zinc-700">... SYNCING_THREAT_INTEL ...</span>
+</div>
+</div>
+<div class="flex gap-4 font-mono text-[9px] uppercase tracking-widest ml-4 shrink-0">
+<a class="text-zinc-700 hover:text-emerald-400" href="#">SYS_STATUS</a>
+<a class="text-zinc-700 hover:text-emerald-400" href="#">PROTOCOL_V3</a>
+<a class="text-[#10B981] underline hover:text-emerald-400" href="#">LOGOUT</a>
+</div>
+</footer>
+</div>
+</body></html>

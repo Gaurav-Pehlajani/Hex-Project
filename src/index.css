@@ -266,4 +266,116 @@
       transform: translateY(0);
     }
   }
+
+  /* HEX Academy Animations */
+  @keyframes xp-float {
+    0% { opacity: 0; transform: translateY(0) scale(0.8); }
+    20% { opacity: 1; transform: translateY(-10px) scale(1.1); }
+    80% { opacity: 1; transform: translateY(-30px) scale(1); }
+    100% { opacity: 0; transform: translateY(-40px) scale(0.9); }
+  }
+
+  @keyframes node-pulse {
+    0% { box-shadow: 0 0 0 0 rgba(6, 182, 212, 0.4); }
+    70% { box-shadow: 0 0 0 10px rgba(6, 182, 212, 0); }
+    100% { box-shadow: 0 0 0 0 rgba(6, 182, 212, 0); }
+  }
+
+  @keyframes node-glow {
+    0% { box-shadow: 0 0 5px rgba(34, 197, 94, 0.5); }
+    50% { box-shadow: 0 0 20px rgba(34, 197, 94, 0.8); }
+    100% { box-shadow: 0 0 5px rgba(34, 197, 94, 0.5); }
+  }
+
+  .xp-float-anim {
+    animation: xp-float 2s ease-out forwards;
+  }
+
+  .academy-node-completed {
+    @apply border-green-500 bg-green-500/20 text-green-400;
+    animation: node-glow 3s infinite;
+  }
+
+  .academy-node-active {
+    @apply border-cyan-500 bg-cyan-500/20 text-cyan-400;
+    animation: node-pulse 2s infinite;
+  }
+
+  .academy-node-locked {
+    @apply border-gray-700 bg-gray-900/50 text-gray-500 opacity-70;
+  }
+  
+  .academy-card-flip {
+    transform-style: preserve-3d;
+    transition: transform 0.7s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  
+  .academy-card-flip.is-flipped {
+    transform: rotateY(180deg);
+  }
+  
+  .academy-card-face {
+    backface-visibility: hidden;
+    transform-style: preserve-3d;
+  }
+  
+  .academy-card-back {
+    transform: rotateY(180deg);
+  }
+
+  .preserve-3d {
+    transform-style: preserve-3d;
+  }
+
+  .backface-hidden {
+    backface-visibility: hidden;
+  }
+
+  /* Custom Scrollbar for Terminal aesthetic */
+  .scrollbar-hide::-webkit-scrollbar {
+    width: 4px;
+    height: 4px;
+  }
+
+  .scrollbar-hide::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  .scrollbar-hide::-webkit-scrollbar-thumb {
+    background: rgba(0, 251, 251, 0.1);
+    border-radius: 10px;
+  }
+
+  .scrollbar-hide::-webkit-scrollbar-thumb:hover {
+    background: rgba(0, 251, 251, 0.3);
+  }
+
+  /* Tactical Background Pattern */
+  .unauthorized-pattern {
+    background-image: repeating-linear-gradient(45deg, transparent, transparent 10px, rgba(239, 68, 68, 0.05) 10px, rgba(239, 68, 68, 0.05) 20px);
+  }
+
+  /* Cockpit Dense Animations */
+  @keyframes scan {
+    0% { background-position: 0% 0%; }
+    100% { background-position: 0% 100%; }
+  }
+
+  @keyframes shimmer {
+    0% { transform: translateX(-100%); }
+    100% { transform: translateX(100%); }
+  }
+
+  @keyframes glitch {
+    0% { transform: translate(0); }
+    20% { transform: translate(-2px, 2px); }
+    40% { transform: translate(-2px, -2px); }
+    60% { transform: translate(2px, 2px); }
+    80% { transform: translate(2px, -2px); }
+    100% { transform: translate(0); }
+  }
+
+  .glitch-success {
+    animation: glitch 0.3s cubic-bezier(.25,.46,.45,.94) both 5;
+  }
 }

@@ -80,7 +80,7 @@ const BillingPopup: React.FC<BillingPopupProps> = ({ isOpen, onClose, dailyUsage
 
           {/* Pricing */}
           <div className="text-center">
-            <div className="text-3xl font-bold text-green-400 mb-1">$3</div>
+            <div className="text-3xl font-bold text-green-400 mb-1">Rs. 299</div>
             <div className="text-gray-300 text-sm">per month</div>
           </div>
 

@@ -1498,6 +1498,9 @@ export const toolCommandMap: Record<string, string> = {
   'amass_enum': 'amass',
   'httpx_probe': 'httpx',
   'rustscan': 'rustscan',
+  'ffuf': 'ffuf',
+  'gobuster': 'gobuster',
+  'nuclei': 'nuclei',
   
   // Active Directory / Windows
   'crackmapexec': 'crackmapexec',
